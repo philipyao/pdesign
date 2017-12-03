@@ -11,6 +11,9 @@ type OmsHost struct{
 	DBAddr          string
 }
 
+//部署cluster
+//1、部署cluster到特定机器的特定目录
+//2、生成服务器进程配置表数据
 type OmsCluster struct {
 	Cluster         string      //cluster，比如world2000@2(同一个cluster可以部署在多台机器，所以区分了@1，@2...)
 	ClusterID       uint32      //比如1(public), 2000(world), 7007(zone)等
@@ -22,7 +25,7 @@ type OmsCluster struct {
 type OmsServer struct {
 	ID              uint32      //自增ID
 	TypeID          uint32      //进程类型编号
-	TypeName        string     //如gamesvr，gatesvr
+	TypeName        string      //如gamesvr，gatesvr
 	Cluster         string      //cluster，比如world2000@2
 	ClusterID       uint32      //比如2000
 	StartIdx        uint32      //部署开始索引
@@ -31,8 +34,9 @@ type OmsServer struct {
 }
 
 //部署DB
-//1、根据OMS的DB配置去对应的机器上建库表
-//2、生成所有表的访问路由,供业务访问(和rpc路由一样写入zk)
+//1、根据OMS的DB配置去对应的机器上建库表(db_biz游戏逻辑数据库，db_conf_server服务器配置库, db_route_db游戏逻辑表路由库)
+//2、所有表库建好后生成路由表tbl_route_table数据
+
 type OmsBizDBTable struct {
 	ID              uint32      //自增ID
 	TableName       string      //表名
@@ -57,6 +61,8 @@ const (
 	OmsParamCommonRedisPasswd            = "RedisPasswd"
 )
 
+//部署配置
+//1、从OMS的DB中拷贝服务器参数表数据(主要是通用参数和特定类型服务器进程参数)
 type OmsParam struct {
 	Params          map[string]string
 }
