@@ -15,28 +15,41 @@ package server_conf
 //参数表key定义
 const (
 	//通用
-	ParamCommonZKAddr                 = "ZKAddr"
-	ParamCommonZKUser                 = "ZKUser"
-	ParamCommonDBAddr                 = "DBAddr"
-	ParamCommonDBUser                 = "DBUser"
-	ParamCommonDBPasswd               = "DBPasswd"
-	ParamCommonLogMaxSize             = "LogMaxSize"
-	ParamCommonLogLevel               = "LogLevel"
-	ParamCommonRedisAddr              = "RedisAddr"
-	ParamCommonRedisPasswd            = "RedisPasswd"
+	ParamCommonZKAddr                 = "zkaddr"
+	ParamCommonZKUser                 = "zkuser"
+    ParamCommonZKPasswd               = "zkpasswd"
+	ParamCommonDBUser                 = "dbuser"
+	ParamCommonDBPasswd               = "dbpasswd"
+	ParamCommonLogMaxSize             = "log_maxsize"
+	ParamCommonLogLevel               = "log_level"
 
 	//gatesvr类型
-	ParamGatesvrMaxSession            = "MaxSession"
-	ParamGatesvrTcpAccpetTimeout      = "TcpAcceptTimeout"
-	ParamGatesvrLogLevel              = "LogLevel"
+	ParamGatesvrMaxConn               = "gate_max_conn"
+    ParamGatesvrMaxOnline             = "gate_max_online"
+	ParamGatesvrTCPAccpetTimeout      = "gate_tcp_accept_timeout"
+    ParamGatesvrTCPMaxChanpkgs        = "gate_tcp_max_chanpkgs"
+    ParamGatesvrKCPResend             = "gate_kcp_resend"
+    ParamGatesvrKCPMtu                = "gate_kcp_mtu"
 
 	//gamesvr类型
-	ParamGamesvrLogMaxSize            = "LogMaxSize"
-	ParamGamesvrLogLevel              = "LogLevel"
-	ParamGamesvrLuaNum                = "LuaNum"
+	ParamGamesvrLogMaxSize            = "log_maxsize"       //覆盖common
+	ParamGamesvrLogLevel              = "log_level"         //覆盖common
+	ParamGamesvrLuaNum                = "game_lua_num"
+    ParamGamesvrEnableVip             = "game_enable_vip"
+    ParamGamesvrVerno                 = "game_verno"
+    ParamGamesvrEnableZip             = "game_enable_zip"
 
-	//namesvr类型
-	ParamNamesvrNameMaxlen            = "NameMaxlen"
+    //namesvr类型
+    ParamNamesvrNameMaxlen            = "name_maxlen"
+    ParamNamesvrMaxtry                = "name_maxtry"
+    ParamNamesvrMaxfindn              = "name_maxfindn"
+    ParamNamesvrMinlen                = "name_minlen"
+
+    //ranksvr类型
+    ParamRanksvrExtURL                = "rank_ext_url"
+    ParamRanksvrURL                   = "rank_url"
+    ParamRanksvrRedisAddr             = "rank_redis_addr"
+    ParamRanksvrRedisPasswd           = "rank_redis_passwd"
 
 )
 
@@ -61,20 +74,20 @@ type ParamNamesvrDef struct {
 	//key/value键值对
 	Params      map[string]string
 }
+type ParamRanksvrDef struct {
+    //key/value键值对
+    Params      map[string]string
+}
+
 
 //===================================================
-//各server独有配置
+//各server最终生成的配置
 type ParamServerDef struct {
-	//以下为通用字段
-	Server              string              /*  clusterid.typeid.index 三段式服务器进程标志 */
-	Cluster             string              /*  部署的cluster，如world2000@2 */
-	Typestr             string              /*  进程类型，如ranksvr，注意不是typeid */
-	Addr                string              /*  ip地址 */
-	Port                uint16              /*  端口 */
-	Profurl             string              /*  进程分析url */
+	Typename            string
+    Typeid              uint32              //进程编号
 
-	//自定义字段（可以覆盖类型配置和通用配置中同一名字的字段）
-	Custom              map[string]string   /*  各进程独有的字段，key/value格式 */
+	//（同名字段向上覆盖类型配置和通用配置中的字段）
+	Params              map[string]string   //进程参数
 }
 
 //数据表路由表

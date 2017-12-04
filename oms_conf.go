@@ -22,14 +22,20 @@ type OmsCluster struct {
 	Loc             string      //地区版本
 }
 
+//server类型定义
+type OmsServerType struct {
+    TypeName        string      //如gamesvr，gatesvr
+    TypeID          uint32      //进程类型编号
+}
+
+//server
 type OmsServer struct {
 	ID              uint32      //自增ID
-	TypeID          uint32      //进程类型编号
 	TypeName        string      //如gamesvr，gatesvr
+    StartIdx        uint32      //部署开始索引
+    EndIdx          uint32      //部署结束索引
 	Cluster         string      //cluster，比如world2000@2
 	ClusterID       uint32      //比如2000
-	StartIdx        uint32      //部署开始索引
-	EndIdx          uint32      //部署结束索引
 	PortBase        uint32      //起始端口号，开多个实例则端口递增
 }
 
@@ -52,7 +58,6 @@ const (
 	OmsUser                              = "OmsUser"    //进行部署操作的user,需要预先设置sudo权限
 	OmsParamCommonZKAddr                 = "ZKAddr"
 	OmsParamCommonZKUser                 = "ZKUser"
-	OmsParamCommonDBAddr                 = "DBAddr"
 	OmsParamCommonDBUser                 = "DBUser"
 	OmsParamCommonDBPasswd               = "DBPasswd"
 	OmsParamCommonLogMaxSize             = "LogMaxSize"
