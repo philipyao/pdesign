@@ -1,0 +1,62 @@
+ip: '10.1.164.45'
+wanp: '10.1.164.45'
+
+servers:
+
+  # zone 7007
+  - clusterlayer: zone
+    clusterid: 7007 
+    server: dbsvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: zone
+    clusterid: 7007 
+    server: gatesvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: zone
+    clusterid: 7007 
+    server: gamesvr 
+    startidx: 1
+    endidx: 2
+    portbase: 7001
+  - clusterlayer: zone
+    clusterid: 7007 
+    server: sessionsvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+
+  # world 7000
+  - clusterlayer: world
+    clusterid: 7000 
+    server: grpdbsvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: world
+    clusterid: 7000 
+    server: ranksvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: world
+    clusterid: 7000 
+    server: matchsvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: world
+    clusterid: 7000 
+    server: replaysvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
+  - clusterlayer: world
+    clusterid: 7000 
+    server: grpsvr 
+    startidx: 0
+    endidx: 0
+    portbase: 7001
