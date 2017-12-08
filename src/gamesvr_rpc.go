@@ -32,6 +32,8 @@ func serveRPC(port int, clusterID, index int) {
     if e != nil {
         log.Fatal("Error: listen %d error:", port, e)
     }
+
+    wg.Add(1)
     go func() {
         for {
             conn, err := l.Accept()
@@ -41,6 +43,7 @@ func serveRPC(port int, clusterID, index int) {
             }
             go rpc.ServeConn(conn)
         }
+        wg.Done()
     }()
 
     //注册rpc地址到zk TODO
@@ -48,4 +51,7 @@ func serveRPC(port int, clusterID, index int) {
     addr := fmt.Sprintf("%v:%v", "xxxx", port)
     _ = serverID
     _= addr
+
+    Log.Printf("server %v rpc serve %v\n", serverID, addr)
 }
+

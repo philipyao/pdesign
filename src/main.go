@@ -5,6 +5,7 @@ import (
     "os"
     "log"
     "flag"
+    "sync"
     "path/filepath"
 )
 
@@ -15,7 +16,9 @@ var (
 
     serverType  int
 
-    Log      *log.Logger
+    Log         *log.Logger
+
+    wg          sync.WaitGroup
 )
 
 func init() {
@@ -31,6 +34,8 @@ func main() {
     setLog()
     Log.Println("hello world!")
     serveRPC(*ptrPort, *ptrClusterID, *ptrIndex)
+
+    wg.Wait()
 }
 
 func readFlags() {
