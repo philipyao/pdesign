@@ -3,6 +3,7 @@
 
 import sys
 import MySQLdb as mdb
+import yaml
 
 db_cnx = None
 
@@ -93,3 +94,23 @@ if __name__ == '__main__':
 
     servers = load_server(cluster_name)
     print servers
+
+    # 生成yaml格式cluster配置
+    cfgname = 'mycluster.yml'
+    yaml_obj = {}
+    yaml_obj['ip'] = host['ip']
+    yaml_obj['wanip'] = host['wanip']
+    yaml_obj['servers'] = []
+    for s in servers:
+        svr = {}
+        svr['clusterlayer'] = cluster['clusterlayer']
+        svr['clusterid'] = cluster['clusterid']
+        svr['server'] = s['typename']
+        svr['startidx'] = s['startidx']
+        svr['endidx'] = s['endidx']
+        svr['portbase'] = s['portbase']
+
+        yaml_obj['servers'].append(s)
+
+    with open(cfgname, 'w') as outfile:
+        yaml.dump(yaml_obj, outfile, default_flow_style=False)    

@@ -1,0 +1,27 @@
+ip: 1.0.0.2
+servers:
+- cluster: zone2001
+  clusterid: !!python/long '2001'
+  endidx: !!python/long '1'
+  host: game002
+  id: !!python/long '10'
+  portbase: 5001
+  startidx: !!python/long '1'
+  typename: gatesvr
+- cluster: zone2001
+  clusterid: !!python/long '2001'
+  endidx: !!python/long '3'
+  host: game002
+  id: !!python/long '11'
+  portbase: 5002
+  startidx: !!python/long '1'
+  typename: gamesvr
+- cluster: zone2001
+  clusterid: !!python/long '2001'
+  endidx: !!python/long '1'
+  host: game002
+  id: !!python/long '12'
+  portbase: 5021
+  startidx: !!python/long '1'
+  typename: sessionsvr
+wanip: 2.0.0.2
