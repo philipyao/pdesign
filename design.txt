@@ -1,0 +1,19 @@
+部署思路：
+
+1、host准备
+根据tbl_host表，对host进行相关操作，主要是环境初始化，必要软件安装，工作账号创建
+
+2、cluster部署
+以cluster为单位进行部署, 到cluster所在机器下载安装包，解压
+./admin.sh cfg 生成进程配置
+根据tbl_server生成.clusterrc进程配置:
+    clusterlayer clusterid  server startidx   endidx   portbase
+admin.sh来管理进程
+    ./bin/xxx -i idx -p port -d clusterid
+    进程启动后根据servername去t_server_conf去读进程配置
+
+3、DB部署
+shell脚本来实现
+根据tbl_db_create表，依次创建所有的表
+每个表host连过去，-h host -u user -p -P 
+根据tablename找到对应的建表sql文件, 根据dbname,tablename,index替换建表语句中的字段, 执行sql
