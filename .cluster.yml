@@ -9,25 +9,25 @@ servers:
     server: dbsvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 4101
   - clusterlayer: zone
     clusterid: 7007 
     server: gatesvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 4201
   - clusterlayer: zone
     clusterid: 7007 
     server: gamesvr 
     startidx: 1
     endidx: 2
-    portbase: 7001
+    portbase: 4301
   - clusterlayer: zone
     clusterid: 7007 
     server: sessionsvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 4401
 
   # world 7000
   - clusterlayer: world
@@ -35,28 +35,28 @@ servers:
     server: grpdbsvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 5101
   - clusterlayer: world
     clusterid: 7000 
     server: ranksvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 5201
   - clusterlayer: world
     clusterid: 7000 
     server: matchsvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 5301
   - clusterlayer: world
     clusterid: 7000 
     server: replaysvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 5401
   - clusterlayer: world
     clusterid: 7000 
     server: grpsvr 
     startidx: 0
     endidx: 0
-    portbase: 7001
+    portbase: 5501
