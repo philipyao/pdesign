@@ -85,18 +85,18 @@ if __name__ == '__main__':
         print "cluster %s not found in db" % cluster_name
         sys.exit(1)
 
-    print cluster
+    print "cluster: ", cluster
     host = hosts[cluster['host']]
     if host == None:
         print "cluster %s host=%s not found!" % (cluster_name, cluster['host'])
 
-    print host
+    print "host: ", host
 
     servers = load_server(cluster_name)
-    print servers
+    print "servers: ", servers
 
     # 生成yaml格式cluster配置
-    cfgname = 'mycluster.yml'
+    cfgname = '../.cluster.yml'
     yaml_obj = {}
     yaml_obj['ip'] = host['ip']
     yaml_obj['wanip'] = host['wanip']
@@ -104,13 +104,14 @@ if __name__ == '__main__':
     for s in servers:
         svr = {}
         svr['clusterlayer'] = cluster['clusterlayer']
-        svr['clusterid'] = cluster['clusterid']
+        svr['clusterid'] = int(cluster['clusterid'])
         svr['server'] = s['typename']
-        svr['startidx'] = s['startidx']
-        svr['endidx'] = s['endidx']
-        svr['portbase'] = s['portbase']
+        svr['startidx'] = int(s['startidx'])
+        svr['endidx'] = int(s['endidx'])
+        svr['portbase'] = int(s['portbase'])
 
-        yaml_obj['servers'].append(s)
+        yaml_obj['servers'].append(svr)
 
+    print yaml_obj
     with open(cfgname, 'w') as outfile:
         yaml.dump(yaml_obj, outfile, default_flow_style=False)    
