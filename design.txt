@@ -17,3 +17,9 @@ shell脚本来实现
 根据tbl_db_create表，依次创建所有的表
 每个表host连过去，-h host -u user -p -P 
 根据tablename找到对应的建表sql文件, 根据dbname,tablename,index替换建表语句中的字段, 执行sql
+
+
+
+程序实现
+1、加解密：非对称加密，DH秘钥交换, 具体加解密(base64, rsa), 公钥传输(防止中间人攻击)
+2、配置中心的实现: 百度disconf思路，携程apollo思路
