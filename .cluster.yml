@@ -1,5 +1,11 @@
 ip: 10.1.164.45
 servers:
+- clusterid: 1
+  clusterlayer: public
+  endidx: 0
+  portbase: 12001
+  server: confsvr
+  startidx: 0
 - clusterid: 2001
   clusterlayer: zone
   endidx: 1
@@ -20,8 +26,8 @@ servers:
   startidx: 1
 - clusterid: 2000
   clusterlayer: world
-  endidx: 1
+  endidx: 0
   portbase: 4021
   server: ranksvr
-  startidx: 1
+  startidx: 0
 wanip: 10.1.164.45
