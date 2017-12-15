@@ -233,7 +233,7 @@ def fun_start(name, clusterid, index, port):
         if os.path.exists('./bin/%s' % (name)) == False:
             hqpy.exit("service[%s] ./bin/%s not exist" % (pname, name))
 
-        hret, rpid = run_start_cmd(pname, shcmd, options.tmo)
+        hret, rpid = run_start_cmd(pname, shcmd, 15)
         hqpy.check_exit(hret, "service[%s:%s] run" % (pname, rpid))
         logger.DEBUG('service[%s:%s] start ok', pname, rpid)
 
@@ -328,16 +328,24 @@ def run_service_config(options, names):
         return hret  
     logger.DEBUG('run service config done')
 
+def make_dir(path):
+    try: 
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise    
+
 def run_service_start(options, servers):
     logger.DEBUG('run service start cmd')
+    make_dir(os.path.join(var_work_dir, 'pid'))
+    make_dir(os.path.join(var_work_dir, 'log'))
+
     for n in servers:
         logger.DEBUG("start: %s(@%d) %d-%d %d", n['server'], n['clusterid'], n['startidx'], n['endidx'], n['portbase'])
         if n['endidx'] == 0:
             fun_start(n['server'], n['clusterid'], 0, n['portbase'])
         else:
-            logger.DEBUG("!!!")
             for idx in range(n['startidx'], n['endidx']+1):
-                logger.DEBUG("idx: %d", idx)
                 fun_start(n['server'], n['clusterid'], idx, n['portbase'] + idx - 1)
     logger.DEBUG('run service start done')
 
