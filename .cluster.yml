@@ -20,7 +20,7 @@ servers:
   startidx: 1
 - clusterid: 2000
   clusterlayer: world
-  endidx: 3
+  endidx: 1
   portbase: 4021
   server: ranksvr
   startidx: 1

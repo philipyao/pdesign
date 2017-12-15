@@ -3,11 +3,13 @@ package main
 import (
     "fmt"
     "os"
+    "os/signal"
     "log"
     "time"
     "flag"
     "sync"
     "path/filepath"
+    "syscall"
 
     "base/util"
 )
@@ -23,7 +25,8 @@ var (
 
     Log         *log.Logger
 
-    wg          sync.WaitGroup
+    done        chan struct{}
+    wg          *sync.WaitGroup
 )
 
 func init() {
@@ -34,17 +37,32 @@ func init() {
     ptrClusterID = flag.Int("c", 0, "server clusterid")
     ptrIP = flag.String("l", "0.0.0.0", "server local ip")
     ptrWanIP = flag.String("w", "0.0.0.0", "server wan ip")
+
+    done = make(chan struct{})
+    wg = &sync.WaitGroup{}
+}
+
+func shutdown() {
+    Log.Println("shutdown server")
+    close(done)
 }
 
 func main() {
+    log.Println()
+
     readFlags()
     setLog()
-    Log.Println("hello world!")
-    serveRPC(*ptrPort, *ptrClusterID, *ptrIndex)
+    Log.Println("hello server!")
+
+    handleSignal()
+
+    serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
 
     writePid()
 
     wg.Wait()
+
+    Log.Println("server exit.")
 }
 
 func readFlags() {
@@ -87,4 +105,14 @@ func writePid() {
     pidFile := util.GenPidFilePath(pName)
     util.WritePidToFile(pidFile, os.Getpid())
     Log.Printf("pidfile %v, pid %v", pidFile, os.Getpid())
+}
+
+func handleSignal() {
+    sigs := make(chan os.Signal, 1)
+    signal.Notify(sigs, syscall.SIGTERM)
+    go func() {
+        Log.Printf("receive sig %v\n", <-sigs)
+        shutdown()
+    }()
+    return
 }
