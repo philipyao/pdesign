@@ -239,15 +239,14 @@ def fun_start(name, clusterid, index, port):
         hqpy.check_exit(hret, "service[%s:%s] run" % (pname, rpid))
         logger.DEBUG('service[%s:%s] start ok', pname, rpid)
 
-def fun_stop(options, name, kill=False):
+def fun_stop(name, index, kill=False):
     global var_work_dir
     os.chdir(var_work_dir)
 
     pname = name
-    itmo = options.tmo
     itmo = 60 # 部分服停服时间较长
-    if options.pidx > 0:
-        pname = '{0}{1}'.format(name, options.pidx)
+    if index > 0:
+        pname = '{0}{1}'.format(name, index)
     hret, pid = get_pid_byname(pname)
     hqpy.check_exit(hret, "get service pid")
 
@@ -354,11 +353,12 @@ def run_service_start(options, servers):
 def run_service_stop(options, servers, kill=False):
     logger.DEBUG('run service stop(kill=%s)', kill)
     servers.reverse()
-    for n in rnames:
-        pgname, idxs = gen_process_options(n)
-        for i in idxs:
-            options.pidx = i
-            fun_stop(options, pgname, kill)
+    for n in servers:
+        if n['endidx'] == 0:
+            fun_stop(n['server'], 0, kill)
+        else:
+            for idx in range(n['startidx'], n['endidx']+1):
+                fun_stop(n['server'], idx, kill)
     logger.DEBUG('run service stop done')
 
 def run_service_restart(options, names, kill=False):

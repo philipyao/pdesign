@@ -40,28 +40,20 @@ main()
             ;;
 
         stop | k)
-            gen_target "$@"
-            python ./service.py  -k $target 
-            hq_check_exit "stop"
+            python ./script/service.py -k "$@"
             ;;
 
-        stop9 | K)
-            gen_target "$@"
-            python ./service.py -K $target 
-            hq_check_exit "kill"
+        stop9 | K)          
+            python ./script/service.py -K "$@"
             ;;
 
         restart | r)
-            gen_target "$@"
-            python ./service.py $var_set -r $target 
-            hq_check_exit "restart"
+            python ./script/service.py -r "$@"
             ;;
-
+            
         restart9 | r9)
-            gen_target "$@"
-            python ./service.py  -K $target 
-            python ./service.py $var_set  -s $target 
-            hq_check_exit "restart9"
+            python ./script/service.py  -K $target
+            python ./script/service.py  -s $target 
             ;;
 
         help | h)

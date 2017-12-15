@@ -62,6 +62,8 @@ func main() {
 
     wg.Wait()
 
+    removePid()
+
     Log.Println("server exit.")
 }
 
@@ -105,6 +107,12 @@ func writePid() {
     pidFile := util.GenPidFilePath(pName)
     util.WritePidToFile(pidFile, os.Getpid())
     Log.Printf("pidfile %v, pid %v", pidFile, os.Getpid())
+}
+
+func removePid() {
+    pName := processName()
+    pidFile := util.GenPidFilePath(pName)
+    util.DeletePidFile(pidFile)
 }
 
 func handleSignal() {
