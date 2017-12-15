@@ -1,4 +1,4 @@
-ip: 1.0.0.2
+ip: 10.1.164.45
 servers:
 - clusterid: 2001
   clusterlayer: zone
@@ -20,8 +20,8 @@ servers:
   startidx: 1
 - clusterid: 2000
   clusterlayer: world
-  endidx: 1
+  endidx: 3
   portbase: 4021
   server: ranksvr
   startidx: 1
-wanip: 2.0.0.2
+wanip: 10.1.164.45

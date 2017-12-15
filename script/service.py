@@ -203,8 +203,8 @@ def fun_start_old(options, name):
         logger.DEBUG('service[%s:%s] start ok', pname, rpid)
 
 def fun_start(name, clusterid, index, port):
-    logger.DEBUG("%s %d %d %d", name, clusterid, index, port)
     global var_work_dir
+    global var_cluster_conf
     os.chdir(var_work_dir)
 
     pname = name
@@ -226,8 +226,10 @@ def fun_start(name, clusterid, index, port):
             stridx = "-i %s" % (index)
         strport = "-p %s" % (port)
         strcluster = "-c %s" % (clusterid)
+        strip = "-l %s" % (var_cluster_conf['ip'])
+        strwan = "-w %s" % (var_cluster_conf['wanip'])
         output_file = './log/output.{0}.log'.format(name)
-        shcmd = "./bin/%s %s %s %s >> %s 2>&1 &" % (name, strcluster, stridx, strport, output_file)
+        shcmd = "./bin/%s %s %s %s %s %s >> %s 2>&1 &" % (name, strcluster, stridx, strip, strwan, strport, output_file)
         logger.DEBUG("shcmd: %s", shcmd)
         ## TODO 增强健壮性
         if os.path.exists('./bin/%s' % (name)) == False:
@@ -349,10 +351,9 @@ def run_service_start(options, servers):
                 fun_start(n['server'], n['clusterid'], idx, n['portbase'] + idx - 1)
     logger.DEBUG('run service start done')
 
-def run_service_stop(options, names, kill=False):
-    rnames = list(names)
-    logger.DEBUG('run service stop(kill=%s) cmd:%s', kill, rnames)
-    rnames.reverse()
+def run_service_stop(options, servers, kill=False):
+    logger.DEBUG('run service stop(kill=%s)', kill)
+    servers.reverse()
     for n in rnames:
         pgname, idxs = gen_process_options(n)
         for i in idxs:

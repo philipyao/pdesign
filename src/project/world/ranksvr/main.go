@@ -16,6 +16,8 @@ var (
     ptrIndex       *int
     ptrPort        *int
     ptrClusterID   *int
+    ptrIP             *string
+    ptrWanIP          *string
 
     serverType  int
 
@@ -30,6 +32,8 @@ func init() {
     ptrIndex = flag.Int("i", 0, "server instance index")
     ptrPort = flag.Int("p", 0, "server rpc port")
     ptrClusterID = flag.Int("c", 0, "server clusterid")
+    ptrIP = flag.String("l", "0.0.0.0", "server local ip")
+    ptrWanIP = flag.String("w", "0.0.0.0", "server wan ip")
 }
 
 func main() {
@@ -66,9 +70,9 @@ func processName() string {
 func setLog() {
     svrname := filepath.Base(os.Args[0])
     log.Printf("svrname %v\n", svrname)
-    _, month, day := time.Now().Data()
+    _, month, day := time.Now().Date()
     logname := processName() + fmt.Sprintf(".%v%v", int(month), day) + ".log"
-    logname = filepath.Join(logname, "log")
+    logname = filepath.Join("log", logname)
     log.Printf("svrname: %v, logname: %v\n", svrname, logname)
     f, err := os.OpenFile(logname, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
     if err != nil {

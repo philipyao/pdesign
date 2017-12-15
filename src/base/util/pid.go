@@ -13,7 +13,7 @@ func GenPidFilePath(sname string) string {
     if err != nil {
         return ""
     }
-    return filepath.Join(wd, "pid", sname)
+    return filepath.Join(wd, "pid", fmt.Sprintf("run.%v.pid", sname))
 }
 
 func PidFromFile(filepath string) (error, int) {
