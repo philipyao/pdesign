@@ -18,4 +18,10 @@ servers:
   portbase: 5021
   server: sessionsvr
   startidx: 1
+- clusterid: 2000
+  clusterlayer: world
+  endidx: 1
+  portbase: 4021
+  server: ranksvr
+  startidx: 1
 wanip: 2.0.0.2
