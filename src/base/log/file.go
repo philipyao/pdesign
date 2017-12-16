@@ -8,13 +8,26 @@ import (
 	"log"
 )
 
+
+//日志大小
+type ByteSize int64
 const (
-	DefaultMaxSize          = 100
-	DefaultBackup           = 5
+	_ ByteSize      = 1 << (iota * 10)
+	KB
+	MB
+	GB
+	TB
+	PB
 )
 
+const (
+	DefaultMaxSize          = 100 * MB
+	DefaultBackup           = 10
+)
+
+//日志轮转选项
 type Options struct {
-	MaxSize         int64
+	MaxSize         ByteSize
 	MaxBackup       int
 }
 
@@ -23,8 +36,8 @@ type AdapterFile struct{
 
 	options         Options
 	currDate        string
-	f               *os.File
-	size            int64
+	writer          *os.File
+	size            ByteSize
 }
 
 func NewAdapterFile(logName string, opt *Options) *AdapterFile {
@@ -34,7 +47,7 @@ func NewAdapterFile(logName string, opt *Options) *AdapterFile {
 			MaxSize: DefaultMaxSize,
 			MaxBackup: DefaultBackup,
 		},
-		size: 0,
+		size: ByteSize(0),
 	}
 	if opt != nil {
 		if opt.MaxBackup > 0 {
@@ -63,7 +76,7 @@ func (af *AdapterFile) Write(b []byte) error {
 			return err
 		}
 	} else {
-		if af.size + len(b) >= af.options.MaxSize {
+		if af.size + ByteSize(len(b)) >= af.options.MaxSize {
 			//切换序号
 			err = af.rotateBySize()
 			if err != nil {
@@ -72,12 +85,12 @@ func (af *AdapterFile) Write(b []byte) error {
 		}
 	}
 
-	n, err := af.f.Write(b)
+	n, err := af.writer.Write(b)
 	if err != nil {
-		log.Printf("write log file error: %+v, %v", af.f, err)
+		log.Printf("write log file error: %+v, %v", af.writer, err)
 		return err
 	}
-	af.size += n
+	af.size += ByteSize(n)
 	return nil
 }
 
@@ -86,14 +99,14 @@ func (af *AdapterFile) dailyRotate() {
 }
 
 func (af *AdapterFile) rotateBySize() error {
-	if af.f != nil {
-		af.f.Close()
-		af.f = nil
+	if af.writer != nil {
+		af.writer.Close()
+		af.writer = nil
 	}
 	for i := 0; i < af.options.MaxBackup; i++ {
 		fname := af.makeLogName(i)
 		st, err := os.Stat(fname)
-		if (err != nil && os.IsNotExist(err)) || (err == nil && st.Size() < af.options.MaxSize) {
+		if (err != nil && os.IsNotExist(err)) || (err == nil && ByteSize(st.Size()) < af.options.MaxSize) {
 			//找到可以写的日志文件
 			return af.openLogFile(fname)
 		}
@@ -111,9 +124,9 @@ func (af *AdapterFile) rotateBySize() error {
 }
 
 func (af *AdapterFile) rotateByDate(date string) error {
-	if af.f != nil {
-		af.f.Close()
-		af.f = nil
+	if af.writer != nil {
+		af.writer.Close()
+		af.writer = nil
 	}
 	af.currDate = date
 
@@ -122,7 +135,7 @@ func (af *AdapterFile) rotateByDate(date string) error {
 }
 
 func (af *AdapterFile) makeLogName(backup int) string {
-	return strings.Join([]string{af.fileName, af.currDate, fmt.Sprintf("%02d", backup), "log"}, ".")
+	return strings.Join([]string{af.writerileName, af.currDate, fmt.Sprintf("%02d", backup), "log"}, ".")
 }
 
 func (af *AdapterFile) openLogFile(fname string) error {
@@ -135,8 +148,8 @@ func (af *AdapterFile) openLogFile(fname string) error {
 	if err != nil {
 		return err
 	}
-	af.size = st.Size()
-	af.f = f
+	af.size = ByteSize(st.Size())
+	af.writer = f
 
 	return nil
 }
