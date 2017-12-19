@@ -6,25 +6,40 @@ import (
     "time"
     "net"
     "net/rpc"
+
+    "project/share/proto"
 )
 
 const (
-    RpcName         = "Game"
+    RpcName         = "Conf"
 )
 
-type GameHelloArg struct {
-    A, B int
-}
-type GameHelloRep struct {
-    C int
-}
+
 
 type RpcWorker int
 
-func (r *RpcWorker) GamesvrHello(args *GameHelloArg, reply *GameHelloRep) error {
+func (r *RpcWorker) GamesvrHello(args *proto.GameHelloArg,
+                                 reply *proto.GameHelloRep) error {
     reply.C = args.A * args.B
     return nil
 }
+
+//根据特定namespace获取配置键值对
+func (r *RpcWorker) ConfigWithNamespace(args *proto.ConfigWithNamespaceArg,
+                                        reply *proto.ConfigWithNamespaceRep) error {
+    Log.Printf("ConfigWithNamespace: args %+v\n", args)
+    confMap := ConfigWithNamespace(args.Namespace)
+    for k, v := range confMap {
+        reply.Confs = append(reply.Confs, &proto.Config{
+            Key:    k,
+            Value:  v,
+        })
+    }
+    return nil
+}
+
+
+//==============================================================================
 
 func serveRPC(done chan struct{}, port int, clusterID, index int) {
     rpc.RegisterName(RpcName, new(RpcWorker))

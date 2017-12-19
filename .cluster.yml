@@ -8,10 +8,10 @@ servers:
   startidx: 0
 - clusterid: 2001
   clusterlayer: zone
-  endidx: 1
+  endidx: 0
   portbase: 5001
   server: gatesvr
-  startidx: 1
+  startidx: 0
 - clusterid: 2001
   clusterlayer: zone
   endidx: 3
@@ -20,10 +20,10 @@ servers:
   startidx: 1
 - clusterid: 2001
   clusterlayer: zone
-  endidx: 1
+  endidx: 0
   portbase: 5021
   server: sessionsvr
-  startidx: 1
+  startidx: 0
 - clusterid: 2000
   clusterlayer: world
   endidx: 0

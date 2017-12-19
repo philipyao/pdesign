@@ -12,6 +12,7 @@ import (
     "syscall"
 
     "base/util"
+    "project/share"
 )
 
 var (
@@ -30,7 +31,7 @@ var (
 )
 
 func init() {
-    serverType  = ServerTypeGamesvr
+    serverType  = share.ServerTypeRanksvr
 
     ptrIndex = flag.Int("i", 0, "server instance index")
     ptrPort = flag.Int("p", 0, "server rpc port")

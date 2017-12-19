@@ -2,9 +2,11 @@ package main
 
 import (
     "fmt"
-    "log"
     "net"
+    "time"
     "net/rpc"
+
+    "log"
 )
 
 const (
@@ -25,33 +27,52 @@ func (r *RpcWorker) GamesvrHello(args *GameHelloArg, reply *GameHelloRep) error 
     return nil
 }
 
-func serveRPC(port int, clusterID, index int) {
+
+///=====================================================================
+
+func serveRPC(done chan struct{}, port int, clusterID, index int) {
     rpc.RegisterName(RpcName, new(RpcWorker))
 
-    l, e := net.Listen("tcp", fmt.Sprintf(":%v", port))
+    addr := fmt.Sprintf("%v:%v", *ptrIP, port)
+    laddr, err := net.ResolveTCPAddr("tcp", addr)
+    if err != nil {
+        log.Fatalln(err)
+    }
+
+    l, e := net.ListenTCP("tcp", laddr)
     if e != nil {
-        log.Fatal("Error: listen %d error:", port, e)
+        log.Fatal("Error: listen on ", laddr, e)
     }
 
     wg.Add(1)
-    go func() {
-        for {
-            conn, err := l.Accept()
-            if err != nil {
-                log.Print("Error: accept rpc connection", err.Error())
-                continue
-            }
-            go rpc.ServeConn(conn)
-        }
-        wg.Done()
-    }()
+    go doServe(l)
 
     //注册rpc地址到zk TODO
     serverID := fmt.Sprintf("%v.%v.%v", clusterID, serverType, index)
-    addr := fmt.Sprintf("%v:%v", "xxxx", port)
-    _ = serverID
-    _= addr
+    fmt.Printf("server %v rpc serve %v\n", serverID, addr)
+}
 
-    Log.Printf("server %v rpc serve %v\n", serverID, addr)
+func doServe(listener *net.TCPListener) {
+    defer wg.Done()
+    defer listener.Close()
+
+    for {
+        select {
+        case <-done:
+            fmt.Printf("stopping rpc listening on %v...\n", listener.Addr())
+            return
+        default:
+        }
+        listener.SetDeadline(time.Now().Add(1e9))
+        conn, err := listener.AcceptTCP()
+        if err != nil {
+            if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+                continue
+            }
+            log.Printf("Error: accept rpc connection, %v\n", err.Error())
+        }
+        //TODO wg.Add(1)
+        go rpc.ServeConn(conn)
+    }
 }
 

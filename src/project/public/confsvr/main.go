@@ -11,8 +11,8 @@ import (
     "path/filepath"
     "syscall"
 
-    "base/def"
     "base/util"
+    "project/share"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 )
 
 func init() {
-    serverType  = def.ServerTypeConfsvr
+    serverType  = share.ServerTypeConfsvr
 
     ptrIndex = flag.Int("i", 0, "server instance index")
     ptrPort = flag.Int("p", 0, "server rpc port")
@@ -55,6 +55,15 @@ func main() {
     setLog()
     Log.Println("hello server!")
 
+    DBInit()
+    err := DBLoadConfig()
+    if err != nil {
+        Log.Println(err)
+    }
+    err = SimuCreateMulti()
+    if err != nil {
+        Log.Println(err)
+    }
     handleSignal()
 
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
@@ -63,6 +72,7 @@ func main() {
 
     wg.Wait()
 
+    DBFini()
     removePid()
 
     Log.Println("server exit.")
