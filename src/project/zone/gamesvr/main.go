@@ -57,6 +57,7 @@ func main() {
 
     handleSignal()
     TryGetGamesvrConfig()
+    RegisterConfDef()
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
 
     writePid()
