@@ -58,6 +58,7 @@ func main() {
     handleSignal()
     TryGetGamesvrConfig()
     RegisterConfDef()
+    HandleConfChange("log_level", log.LevelStringInfo, log.LevelStringDebug)
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
 
     writePid()

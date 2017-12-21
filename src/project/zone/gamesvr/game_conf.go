@@ -166,10 +166,51 @@ func RegisterConfDef() interface{} {
         if p.FuncOnUpdate.IsValid() == false {
             log.Error("error conf<key %v, name %v>: on-update method not found!", k, p.Name)
         } else {
-            //TODO update的参数校验
+            if p.FuncOnUpdate.Type().NumIn() != 2 {
+                log.Error("error conf<key %v, name %v>: on-update method with input parameter count not equal to 2", k, p.Name)
+            } else {
+                param := p.FuncOnUpdate.Type().In(0)
+                if param.Kind() != reflect.String {
+                    log.Error("error conf<key %v, name %v>: on-update method parameter 1 must be string", k, p.Name)
+                }
+                param = p.FuncOnUpdate.Type().In(1)
+                if param.Kind() != reflect.String {
+                    log.Error("error conf<key %v, name %v>: on-update method parameter 2 must be string", k, p.Name)
+                }
+            }
+            if p.FuncOnUpdate.Type().NumOut() > 0 {
+                log.Error("error conf<key %v, name %v>: on-update method with return value.", k, p.Name)
+            }
         }
     }
     return mgr
+}
+
+func HandleConfChange(key, oldVal, val string) {
+    processor, ok := processors[key]
+    if !ok {
+        log.Info("ignore conf change: key %v, value %v", key, val)
+        return
+    }
+
+    //call set
+    in := []reflect.Value{reflect.ValueOf(val)}
+    returns := processor.FuncSet.Call(in)
+    if len(returns) != 1 {
+        log.Error("set func error")
+        return
+    }
+    err := returns[0].Interface()
+    if err != nil {
+        log.Info("set conf failed: key %v, val %v, err %v", key, val, err)
+        return
+    } else {
+        log.Info("set conf success: key %v, val %v", key, val)
+    }
+
+    //call on update
+    in = []reflect.Value{reflect.ValueOf(oldVal), reflect.ValueOf(val)}
+    processor.FuncOnUpdate.Call(in)
 }
 
 func gonicCasedName(name string) string {
