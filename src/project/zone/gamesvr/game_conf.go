@@ -8,37 +8,9 @@ import (
     "strings"
 
     "base/log"
+
+    _ "project/share/pconf.client/core"
 )
-
-const (
-    PrefixSet       = "Set"
-    PrefixOnUpdate  = "OnUpdate"
-)
-
-var (
-    ConfMgr *GameConf
-
-    processors  map[string]*ConfProcessor
-)
-
-type FuncProcessSet func(string) error
-type FuncProcessOnUpdate func(string, string)
-
-type ConfProcessor struct {
-    NameKey         string          //小写下划线配置名字
-    Name            string
-    FuncGet         reflect.Value   //获取函数
-    FuncSet         reflect.Value   //设置函数
-    FuncOnUpdate    reflect.Value   //更新回调
-}
-
-// gamesvr 用到的conf定义
-type GameConf struct {
-    lock *sync.RWMutex
-
-    logLevel        string
-    enableVip       int
-}
 
 func init() {
     ConfMgr = new(GameConf)
@@ -98,144 +70,11 @@ func (gc *GameConf) OnUpdateEnableVip(oldVal, val string) {
 }
 
 //============================================================
-func RegisterConfDef() interface{} {
-    mgr := ConfMgr
-    t := reflect.TypeOf(mgr)
-    v := reflect.ValueOf(mgr)
-    name := reflect.Indirect(v).Type().Name()
-    log.Debug("confdef: %v, gonic: %v", name, gonicCasedName(name))
-    if t.Kind() != reflect.Ptr {
-        log.Error("confdef should be pointer.")
-        panic(t)
-    }
-    for i := 0; i < t.NumMethod(); i++ {
-        log.Debug("method: %+v", t.Method(i))
-        name = t.Method(i).Name
-        if strings.HasPrefix(name, PrefixSet) {
-            name = strings.TrimPrefix(name, PrefixSet)
-        } else if strings.HasPrefix(name, PrefixOnUpdate) {
-            name = strings.TrimPrefix(name, PrefixOnUpdate)
-        }
-        nameKey := gonicCasedName(name)
-        _, ok := processors[nameKey]
-        if !ok {
-            processors[nameKey] = &ConfProcessor{
-                NameKey:    nameKey,
-                Name:       name,
-            }
-        }
-    }
 
-    errorInterface := reflect.TypeOf((*error)(nil)).Elem()
-    for k, p := range processors {
-        p.FuncGet = v.MethodByName(p.Name)
-        if p.FuncGet.IsValid() == false {
-            log.Error("error conf<key %v, name %v>: get method not found!", k, p.Name)
-        } else {
-            if p.FuncGet.Type().NumIn() > 0 {
-                log.Error("error conf<key %v, name %v>: get method must NOT have parameters", k, p.Name)
-            }
-            if p.FuncGet.Type().NumOut() == 0 {
-                log.Error("error conf<key %v, name %v>: get method without output parameters!", k, p.Name)
-            }
-        }
-
-        p.FuncSet = v.MethodByName(PrefixSet + p.Name)
-        if p.FuncSet.IsValid() == false {
-            log.Error("error conf<key %v, name %v>: set method not found!", k, p.Name)
-        } else {
-            if p.FuncSet.Type().NumIn() != 1 {
-                log.Error("error conf<key %v, name %v>: Set method with input parameter count not equal to 1", k, p.Name)
-            } else {
-                param := p.FuncSet.Type().In(0)
-                if param.Kind() != reflect.String {
-                    log.Error("error conf<key %v, name %v>: Set method parameter must be string", k, p.Name)
-                }
-            }
-            if p.FuncSet.Type().NumOut() != 1 {
-                log.Error("error conf<key %v, name %v>: set method must has 1 erro return value!", k, p.Name)
-            } else {
-                param := p.FuncSet.Type().Out(0)
-                if param.Kind() != reflect.Interface || param.Implements(errorInterface) == false {
-                    log.Error("error conf<key %v, name %v>: Set method return must be type error, kind %v", k, p.Name, param.Kind())
-                }
-            }
-        }
-
-        p.FuncOnUpdate = v.MethodByName(PrefixOnUpdate + p.Name)
-        if p.FuncOnUpdate.IsValid() == false {
-            log.Error("error conf<key %v, name %v>: on-update method not found!", k, p.Name)
-        } else {
-            if p.FuncOnUpdate.Type().NumIn() != 2 {
-                log.Error("error conf<key %v, name %v>: on-update method with input parameter count not equal to 2", k, p.Name)
-            } else {
-                param := p.FuncOnUpdate.Type().In(0)
-                if param.Kind() != reflect.String {
-                    log.Error("error conf<key %v, name %v>: on-update method parameter 1 must be string", k, p.Name)
-                }
-                param = p.FuncOnUpdate.Type().In(1)
-                if param.Kind() != reflect.String {
-                    log.Error("error conf<key %v, name %v>: on-update method parameter 2 must be string", k, p.Name)
-                }
-            }
-            if p.FuncOnUpdate.Type().NumOut() > 0 {
-                log.Error("error conf<key %v, name %v>: on-update method with return value.", k, p.Name)
-            }
-        }
-    }
-    return mgr
-}
 
 func HandleConfChange(key, oldVal, val string) {
-    processor, ok := processors[key]
-    if !ok {
-        log.Info("ignore conf change: key %v, value %v", key, val)
-        return
-    }
 
-    //call set
-    in := []reflect.Value{reflect.ValueOf(val)}
-    returns := processor.FuncSet.Call(in)
-    if len(returns) != 1 {
-        log.Error("set func error")
-        return
-    }
-    err := returns[0].Interface()
-    if err != nil {
-        log.Info("set conf failed: key %v, val %v, err %v", key, val, err)
-        return
-    } else {
-        log.Info("set conf success: key %v, val %v", key, val)
-    }
-
-    //call on update
-    in = []reflect.Value{reflect.ValueOf(oldVal), reflect.ValueOf(val)}
-    processor.FuncOnUpdate.Call(in)
 }
 
-func gonicCasedName(name string) string {
-    newstr := make([]rune, 0, len(name)+3)
-    for idx, chr := range name {
-        if isASCIIUpper(chr) && idx > 0 {
-            if !isASCIIUpper(newstr[len(newstr)-1]) {
-                newstr = append(newstr, '_')
-            }
-        }
 
-        if !isASCIIUpper(chr) && idx > 1 {
-            l := len(newstr)
-            if isASCIIUpper(newstr[l-1]) && isASCIIUpper(newstr[l-2]) {
-                newstr = append(newstr, newstr[l-1])
-                newstr[l-1] = '_'
-            }
-        }
-
-        newstr = append(newstr, chr)
-    }
-    return strings.ToLower(string(newstr))
-}
-
-func isASCIIUpper(r rune) bool {
-    return 'A' <= r && r <= 'Z'
-}
 
