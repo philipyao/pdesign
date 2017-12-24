@@ -12,6 +12,11 @@ import (
     _ "project/share/pconf.client/core"
 )
 
+type GameConf struct {
+    logLevel        string          `pconf:"log_level"`
+    vipLevel        uint32          `pconf:"vip_level"`
+}
+
 func init() {
     ConfMgr = new(GameConf)
     ConfMgr.lock = new(sync.RWMutex)

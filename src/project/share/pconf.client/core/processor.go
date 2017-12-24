@@ -3,8 +3,6 @@ package core
 import (
     "fmt"
     "errors"
-    "sync"
-    "strconv"
     "reflect"
     "strings"
 )
@@ -12,7 +10,9 @@ import (
 const (
     PrefixSet       = "Set"
     PrefixOnUpdate  = "OnUpdate"
+)
 
+var (
     ResUpdateIgnoreKey      = errors.New("ignore this key")
     ResUpdateInvSetReturn   = errors.New("invalid set return")
 )
@@ -27,22 +27,16 @@ func init() {
     processors = make(map[string]*confProcessor)
 }
 
-func RegisterEntry(name string, v reflect.Value) error {
-    if strings.HasPrefix(name, PrefixSet) {
-        name = strings.TrimPrefix(name, PrefixSet)
-    } else if strings.HasPrefix(name, PrefixOnUpdate) {
-        name = strings.TrimPrefix(name, PrefixOnUpdate)
+func RegisterEntry(tag string, goName string, v reflect.Value) error {
+    _, ok := processors[tag]
+    if ok {
+        return fmt.Errorf("duplicated pconf tag: %v", tag)
     }
-    nameKey := gonicCasedName(name)
-    _, ok := processors[nameKey]
-    if !ok {
-        processors[nameKey] = &confProcessor{
-            NameKey:    nameKey,
-            Name:       name,
-        }
-        return processors[nameKey].BuildFunc(v)
+    processors[tag] = &confProcessor{
+        NameKey:    tag,
+        Name:       goName,
     }
-    return nil
+    return processors[tag].BuildFunc(v)
 }
 
 //获取所有配置项的key

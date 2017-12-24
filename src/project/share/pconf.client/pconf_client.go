@@ -2,12 +2,14 @@ package pconfclient
 
 import (
     "fmt"
-    "sync"
-    "strconv"
     "reflect"
-    "strings"
+
+    "project/share/pconf.client/core"
 )
 
+const (
+    PConfTag            = "pconf"
+)
 
 func RegisterConfDef(confDef interface{}) error {
     t := reflect.TypeOf(confDef)
@@ -15,26 +17,35 @@ func RegisterConfDef(confDef interface{}) error {
     if t.Kind() != reflect.Ptr {
         return fmt.Errorf("confdef should be pointer.")
     }
-    if t.NumMethod() == 0 {
-        return fmt.Errorf("confdef with XXX|SetXXX|OnUpdateXXX should be defined.")
+    t = t.Elem()
+    if t.Kind() != reflect.Struct {
+        return fmt.Errorf("confdef should be struct pointer. %v", reflect.TypeOf(t.Elem()).Kind())
     }
-    for i := 0; i < t.NumMethod(); i++ {
-        name := t.Method(i).Name
-        if strings.HasPrefix(name, PrefixSet) {
-            name = strings.TrimPrefix(name, PrefixSet)
-        } else if strings.HasPrefix(name, PrefixOnUpdate) {
-            name = strings.TrimPrefix(name, PrefixOnUpdate)
-        }
-        nameKey := gonicCasedName(name)
-        _, ok := processors[nameKey]
-        if !ok {
-            processors[nameKey] = &confProcessor{
-                NameKey:    nameKey,
-                Name:       name,
-            }
-        }
+    if t.NumField() == 0 {
+        return fmt.Errorf("confdef with no fields.")
     }
-    return initProcessorFunc(v)
+    //找出'pconf' tag的字段
+    tagFound := false
+    var err error
+    for i := 0; i < t.NumField(); i++ {
+        sf := t.Field(i)
+        tag, ok := sf.Tag.Lookup(PConfTag)
+        if !ok { continue }
+        if tag == "" {
+            return fmt.Errorf("empty value of 'pconf' tag for field <%v> is not allowed.", sf.Name)
+        }
+        tagFound = true
+        goName := tag2GoName(tag)
+        err = core.RegisterEntry(tag, goName, v)
+        if err != nil {
+            return err
+        }
+        fmt.Printf("register field %v %v ok\n", tag, goName)
+    }
+    if tagFound == false {
+        return fmt.Errorf("no 'pconf' tag found in provided confdef")
+    }
+    return nil
 }
 
 func Load() chan bool {
@@ -42,32 +53,4 @@ func Load() chan bool {
     //开始从远程服务器加载需要的配置
 
     return done
-}
-
-
-
-func gonicCasedName(name string) string {
-    newstr := make([]rune, 0, len(name)+3)
-    for idx, chr := range name {
-        if isASCIIUpper(chr) && idx > 0 {
-            if !isASCIIUpper(newstr[len(newstr)-1]) {
-                newstr = append(newstr, '_')
-            }
-        }
-
-        if !isASCIIUpper(chr) && idx > 1 {
-            l := len(newstr)
-            if isASCIIUpper(newstr[l-1]) && isASCIIUpper(newstr[l-2]) {
-                newstr = append(newstr, newstr[l-1])
-                newstr[l-1] = '_'
-            }
-        }
-
-        newstr = append(newstr, chr)
-    }
-    return strings.ToLower(string(newstr))
-}
-
-func isASCIIUpper(r rune) bool {
-    return 'A' <= r && r <= 'Z'
 }
