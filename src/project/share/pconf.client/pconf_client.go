@@ -3,15 +3,36 @@ package pconfclient
 import (
     "fmt"
     "reflect"
+    "errors"
 
     "project/share/pconf.client/core"
+    "project/share/proto"
 )
 
 const (
     PConfTag            = "pconf"
+
+    NameKeyZKAddr       = "zkaddr"
 )
 
-func RegisterConfDef(confDef interface{}) error {
+var (
+    currNamespace   string
+)
+
+func RegisterConfDef(namespace string, confDef interface{}) error {
+    var err error
+
+    confAddr := "10.1.164.45:12001"
+    err = core.InitFetcher(confAddr)
+    if err != nil {
+        return err
+    }
+
+    if namespace == "" {
+        return errors.New("empty conf namespace.")
+    }
+    currNamespace = namespace
+
     t := reflect.TypeOf(confDef)
     v := reflect.ValueOf(confDef)
     if t.Kind() != reflect.Ptr {
@@ -26,7 +47,6 @@ func RegisterConfDef(confDef interface{}) error {
     }
     //找出'pconf' tag的字段
     tagFound := false
-    var err error
     for i := 0; i < t.NumField(); i++ {
         sf := t.Field(i)
         tag, ok := sf.Tag.Lookup(PConfTag)
@@ -48,9 +68,17 @@ func RegisterConfDef(confDef interface{}) error {
     return nil
 }
 
-func Load() chan bool {
-    done := make(chan bool, 1)
+func Load() error {
     //开始从远程服务器加载需要的配置
+    keys := core.EntryKeys()
+    keys = append(keys, NameKeyZKAddr)
+    fmt.Printf("load: keys %+v\n", keys)
 
-    return done
+    confs, err := core.FetchConfFromServer(currNamespace, keys)
+    if err != nil {
+        return err
+    }
+    fmt.Println(confs)
+
+    return nil
 }

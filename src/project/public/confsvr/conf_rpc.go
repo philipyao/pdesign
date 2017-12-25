@@ -25,12 +25,16 @@ func (r *RpcWorker) GamesvrHello(args *proto.GameHelloArg,
 }
 
 //根据特定namespace获取配置键值对
-func (r *RpcWorker) ConfigWithNamespace(args *proto.ConfigWithNamespaceArg,
-                                        reply *proto.ConfigWithNamespaceRep) error {
-    Log.Printf("ConfigWithNamespace: args %+v\n", args)
-    confMap := ConfigWithNamespace(args.Namespace)
+func (r *RpcWorker) FetchConfig(args *proto.FetchConfigArg,
+                                response *proto.FetchConfigRes) error {
+    Log.Printf("FetchConfig: args %+v\n", args)
+    confMap, err := ConfigWithNamespaceKey(args.Namespace, args.Keys)
+    if err != nil {
+        response.Errmsg = err.Error()
+        return nil
+    }
     for k, v := range confMap {
-        reply.Confs = append(reply.Confs, &proto.Config{
+        response.Confs = append(response.Confs, &proto.ConfigEntry{
             Key:    k,
             Value:  v,
         })

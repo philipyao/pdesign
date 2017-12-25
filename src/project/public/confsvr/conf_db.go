@@ -142,21 +142,30 @@ func SimuCreateMulti() error {
     return nil
 }
 
-func ConfigWithNamespace(nameSpace string) map[string]string {
+func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string]string, error) {
     rets := make(map[string]string)
     //common的固定返回
-    for _, c := range confs {
-        if c.Namespace == ConfNamespaceCommon {
-            rets[c.Key] = c.Value
+    for _, key := range keys {
+        //先取common的值
+        for _, c := range confs {
+            if c.Key == key && c.Namespace == ConfNamespaceCommon {
+                rets[key] = c.Value
+                break
+            }
+        }
+        //再取特定namespace的值，同key的覆盖
+        for _, c := range confs {
+            if c.Key == key && c.Namespace == nameSpace {
+                rets[key] = c.Value
+                break
+            }
+        }
+        if _, ok := rets[key]; !ok {
+            return fmt.Errorf("config for key <%v> not specified!", key)
         }
     }
-    //特定namespace的同key的可以覆盖common中的
-    for _, c := range confs {
-        if c.Namespace == nameSpace {
-            rets[c.Key] = c.Value
-        }
-    }
-    return rets
+
+    return rets, nil
 }
 
 func DBFini() {

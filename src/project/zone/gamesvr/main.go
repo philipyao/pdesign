@@ -51,14 +51,23 @@ func shutdown() {
 
 func main() {
     fmt.Println("\n")
-
+    var err error
     readFlags()
     setLog()
 
     handleSignal()
-    TryGetGamesvrConfig()
-    RegisterConfDef()
-    HandleConfChange("log_level", log.LevelStringInfo, log.LevelStringDebug)
+
+    err = InitConf()
+    if err != nil {
+        log.Error("InitConf: %v", err)
+        return
+    }
+    err = LoadConf()
+    if err != nil {
+        log.Error("LoadConf: %v", err)
+        return
+    }
+
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
 
     writePid()

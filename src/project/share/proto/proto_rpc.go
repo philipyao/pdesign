@@ -7,13 +7,15 @@ type GameHelloRep struct {
     C int
 }
 
-type ConfigWithNamespaceArg struct {
+type FetchConfigArg struct {
     Namespace       string
+    Keys            []string
 }
-type ConfigWithNamespaceRep struct {
-    Confs           []*Config
+type FetchConfigRes struct {
+    Errmsg          string
+    Confs           []*ConfigEntry
 }
-type Config struct {
+type ConfigEntry struct {
     Key             string
     Value           string
 }

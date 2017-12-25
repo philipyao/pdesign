@@ -2,14 +2,18 @@ package main
 
 import (
     "fmt"
-    "sync"
     "strconv"
-    "reflect"
-    "strings"
 
     "base/log"
 
-    _ "project/share/pconf.client/core"
+    pconfclient "project/share/pconf.client"
+)
+
+var (
+    ConfMgr *GameConf
+)
+const (
+    Namespace       string      = "gamesvr"
 )
 
 type GameConf struct {
@@ -17,22 +21,24 @@ type GameConf struct {
     vipLevel        uint32          `pconf:"vip_level"`
 }
 
-func init() {
-    ConfMgr = new(GameConf)
-    ConfMgr.lock = new(sync.RWMutex)
-    processors = make(map[string]*ConfProcessor)
+func InitConf() error {
+    gconf := new(GameConf)
+    err := pconfclient.RegisterConfDef(Namespace, gconf)
+    if err != nil {
+        log.Error("Init conf error: %v", err)
+        return err
+    }
+    return nil
+}
+
+func LoadConf() error {
+    return pconfclient.Load()
 }
 
 func (gc *GameConf) LogLevel() string {
-    gc.lock.RLock()
-    defer gc.lock.RUnlock()
-
     return gc.logLevel
 }
 func (gc *GameConf) SetLogLevel(val string) error {
-    gc.lock.Lock()
-    defer gc.lock.Unlock()
-
     if val != log.LevelStringDebug &&
         val != log.LevelStringInfo &&
         val != log.LevelStringWarn &&
@@ -48,15 +54,9 @@ func (gc *GameConf) OnUpdateLogLevel(oldVal, val string) {
 }
 
 func (gc *GameConf) EnableVip() int {
-    gc.lock.RLock()
-    defer gc.lock.RUnlock()
-
     return gc.enableVip
 }
 func (gc *GameConf) SetEnableVip(val string) error {
-    gc.lock.Lock()
-    defer gc.lock.Unlock()
-
     if len(val) == 0 {
         return fmt.Errorf("empty set string")
     }
@@ -77,9 +77,6 @@ func (gc *GameConf) OnUpdateEnableVip(oldVal, val string) {
 //============================================================
 
 
-func HandleConfChange(key, oldVal, val string) {
-
-}
 
 
 
