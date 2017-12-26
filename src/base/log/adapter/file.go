@@ -1,4 +1,4 @@
-package log
+package adapter
 
 import (
 	"time"
@@ -8,28 +8,10 @@ import (
 	"log"
 )
 
-
-//日志大小
-type ByteSize int64
-const (
-	_ ByteSize      = 1 << (iota * 10)
-	KB
-	MB
-	GB
-	TB
-	PB
-)
-
 const (
 	DefaultMaxSize          = 100 * MB
 	DefaultBackup           = 10
 )
-
-//日志轮转选项
-type Options struct {
-	MaxSize         ByteSize
-	MaxBackup       int
-}
 
 type AdapterFile struct{
 	fileName        string
@@ -40,7 +22,7 @@ type AdapterFile struct{
 	size            ByteSize
 }
 
-func NewAdapterFile(logName string, opt *Options) *AdapterFile {
+func NewAdapterFile(logName string, opt *Options) (*AdapterFile, error) {
 	a := &AdapterFile{
 		fileName: logName,
 		options: Options{
@@ -59,11 +41,11 @@ func NewAdapterFile(logName string, opt *Options) *AdapterFile {
 	}
 	a.currDate = makeCurrDate()
 	if err := a.rotateBySize(); err != nil {
-		return err
+		return nil, err
 	}
 
 	go a.dailyRotate()
-	return a
+	return a, nil
 }
 
 func (af *AdapterFile) Write(b []byte) error {
@@ -92,6 +74,13 @@ func (af *AdapterFile) Write(b []byte) error {
 	}
 	af.size += ByteSize(n)
 	return nil
+}
+
+func (af *AdapterFile) Close() {
+	if af.writer != nil {
+		af.writer.Close()
+		af.writer = nil
+	}
 }
 
 func (af *AdapterFile) dailyRotate() {
@@ -135,14 +124,14 @@ func (af *AdapterFile) rotateByDate(date string) error {
 }
 
 func (af *AdapterFile) makeLogName(backup int) string {
-	return strings.Join([]string{af.writerileName, af.currDate, fmt.Sprintf("%02d", backup), "log"}, ".")
+	return strings.Join([]string{af.fileName, af.currDate, fmt.Sprintf("%02d", backup), "log"}, ".")
 }
 
 func (af *AdapterFile) openLogFile(fname string) error {
 	f, err := os.OpenFile(fname, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0644)
 	if err != nil {
 		log.Printf("openLogFile error: file %v, err %v", fname, err)
-		return
+		return err
 	}
 	st, err := f.Stat()
 	if err != nil {
