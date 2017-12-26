@@ -4,7 +4,6 @@ import (
     "testing"
 )
 
-/*
 func TestLogFile(t *testing.T) {
     config := `{"filename": "flagtest", "maxsize": 102400, "maxbackup": 10}`
     err := AddAdapter(AdapterFile, config)
@@ -26,14 +25,15 @@ func TestLogFile(t *testing.T) {
     Info("info log: %v", 222)
     Error("error log: %v", 333)
 
-    SetFlags(LogTime | LogLongFile)
+    SetLevel(LevelStringDebug)
+    SetFlags(LogDate | LogTime | LogMicroTime | LogLongFile)
     Warn("warn log: %v", 111)
     Info("info log: %v", 222)
     Error("error log: %v", 333)
 
     Flush()
 }
-*/
+
 
 func BenchmarkLogFile(b *testing.B) {
     config := `{"filename": "benchmark", "maxsize": 102400000, "maxbackup": 10}`

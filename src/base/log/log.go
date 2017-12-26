@@ -5,7 +5,7 @@ import (
     "time"
     //"log"
     "runtime"
-    "strings"
+    "strconv"
     "path/filepath"
 
     "base/log/adapter"
@@ -167,25 +167,37 @@ func Flush() {
 }
 
 func output(lvString string, format string, args ...interface{}) {
+    var text string
     tmNow := time.Now()
-    text := tmNow.Format("2016-01-02 15:04:05")
-    if flag & LogMicroTime != 0 {
-        text += fmt.Sprintf(".%06d", tmNow.Nanosecond()/1e3)
+    if flag & LogDate != 0 {
+        y, m, d := tmNow.Date()
+        text += fmt.Sprintf("%04d-%02d-%02d", y, int(m), d)
+        text += " "
     }
-    _, file, line, ok := runtime.Caller(2)
-    if !ok {
-        file = "???"
-        line = 0
-    } else {
-        if flag & LogShortFile != 0 {
-            file = filepath.Base(file)
+    if flag & LogTime != 0 {
+        text += tmNow.Format("15:04:05")
+        if flag & LogMicroTime != 0 {
+            text += fmt.Sprintf(".%06d", tmNow.Nanosecond()/1e3)
         }
+        text += " "
     }
 
-    fileName := file + ":" + fmt.Sprintf("%v", line)
-    lvStr := fmt.Sprintf("[%v]", lvString)
-    msg := fmt.Sprintf(format, args...)
-    text = strings.Join([]string{text, fileName, lvStr, msg}, " ")
+    if flag & (LogShortFile | LogLongFile) != 0 {
+        _, file, line, ok := runtime.Caller(2)
+        if !ok {
+            file = "???"
+            line = 0
+        } else {
+            if flag & LogShortFile != 0 {
+                file = filepath.Base(file)
+            }
+        }
+        text += file + ":" + strconv.Itoa(line)
+        text += " "
+    }
+
+    text += fmt.Sprintf("[%v] ", lvString)
+    text += fmt.Sprintf(format, args...)
     text += "\n"
 
     logMsg := logMessageGet()
