@@ -89,7 +89,7 @@ func AddAdapter(name string, conf string) error {
     }
     var adp adapter.Adapter
     if name == AdapterConsole {
-
+        panic(name)
     } else if name == AdapterFile {
         options := &adapter.Options{
             MaxSize: adapter.ByteSize(logconf.MaxSize),
@@ -97,7 +97,7 @@ func AddAdapter(name string, conf string) error {
         }
         adp, err = adapter.NewAdapterFile(logconf.FileName, options)
     } else if name == AdapterNet {
-
+        panic(name)
     } else {
         err = fmt.Errorf("unknown adapter name %v", name)
     }
