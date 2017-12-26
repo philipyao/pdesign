@@ -36,7 +36,7 @@ func FetchConfFromServer(namespace string, keys []string) ([]*proto.ConfigEntry,
 	var response proto.FetchConfigRes
 	err := rpcClient.Call("Conf.FetchConfig", args, &response)
 	if err != nil {
-		return fmt.Errorf("FetchConfig call error %v\n", err)
+		return nil, fmt.Errorf("FetchConfig call error %v\n", err)
 	}
 	if response.Errmsg != "" {
 		return nil, errors.New(response.Errmsg)

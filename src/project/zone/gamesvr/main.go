@@ -60,12 +60,10 @@ func main() {
     err = InitConf()
     if err != nil {
         log.Error("InitConf: %v", err)
-        return
     }
     err = LoadConf()
     if err != nil {
         log.Error("LoadConf: %v", err)
-        return
     }
 
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)

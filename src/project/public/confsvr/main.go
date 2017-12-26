@@ -55,15 +55,7 @@ func main() {
     setLog()
     Log.Println("hello server!")
 
-    DBInit()
-    err := DBLoadConfig()
-    if err != nil {
-        Log.Println(err)
-    }
-    err = SimuCreateMulti()
-    if err != nil {
-        Log.Println(err)
-    }
+    initCore()
     handleSignal()
 
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)

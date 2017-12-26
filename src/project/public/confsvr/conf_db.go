@@ -16,30 +16,8 @@ var (
     //db *gorm.DB
     engine *xorm.Engine
 
-    confs []DBConfig
+
 )
-
-const (
-    TableNameConf       = "tbl_conf"
-
-    ConfNamespaceOms    = "oms"
-    ConfNamespaceCommon = "common"
-)
-
-//配置表
-type DBConfig struct {
-    ID              uint        `xorm:"pk autoincr 'id'"`
-    Namespace       string      `xorm:"varchar(32) notnull"`
-    Key             string      `xorm:"varchar(64) notnull"`
-    Value           string      `xorm:"varchar(128) notnull"`
-
-    UpdatedAt       time.Time   `xorm:"updated"`
-    CreatedAt       time.Time   `xorm:"created"`
-    Version         int         `xorm:"version"`    //自动更新版本号
-}
-func (c DBConfig) TableName() string {
-    return TableNameConf
-}
 
 type UserSimu struct {
     Charid          uint64      `xorm:"pk notnull 'charid'"`
@@ -51,17 +29,8 @@ type UserSimu struct {
     CreatedAt       time.Time   `xorm:"created"`
 }
 
-func DBInit() error {
+func initDB(obj *Config) error {
     var err error
-    //db, err = gorm.Open("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8&parseTime=True&loc=Local")
-    //if err != nil {
-    //    Log.Printf("gorm.Open error %v\n", err)
-    //    return err
-    //}
-    //db = db.Debug()
-    //row := db.Select("VERSION()").Row()
-    //Log.Printf("version: %+v\n", row)
-
     engine, err = xorm.NewEngine("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
     if err != nil {
         Log.Printf("xorm.NewEngine error %v\n", err)
@@ -75,44 +44,25 @@ func DBInit() error {
         Log.Printf("engine.Ping error %v\n", err)
         return err
     }
+    err = engine.Sync2(obj)
+    if err != nil {
+        Log.Println(err)
+    }
     return nil
 }
 
-func DBLoadConfig() error {
-    var err error
-
-    //if db == nil {
-    //    return errors.New("null db")
-    //}
-
-    //err = db.Table(TableNameConf).AutoMigrate(&Config{}).Error
-    //if err != nil {
-    //    Log.Println("AutoMigrate %v error: %v\n", TableNameConf, err)
-    //    return err
-    //}
-    //
-    //var confs []Config
-    //err = db.Table(TableNameConf).Find(&confs).Error
-    //if err != nil {
-    //    Log.Println("Find %v error: %v\n", TableNameConf, err)
-    //    return err
-    //}
-    //Log.Printf("Load conf, total %v records\n", len(confs))
-
+func loadConfigFromDB() (confs []Config, err error) {
     if engine == nil {
-        return errors.New("null engine")
+        return nil, errors.New("null engine")
     }
-    err = engine.Sync2(new(DBConfig))
-    if err != nil {
-        Log.Println(err)
-    }
-    confs = make([]DBConfig, 0)
+
+    confs = make([]Config, 0)
     err = engine.Find(&confs)
     if err != nil {
-        Log.Println(err)
+        return nil, err
     }
-    Log.Printf("confs: %+v\n", confs)
-    return nil
+
+    return
 }
 
 func SimuCreateMulti() error {
@@ -140,32 +90,6 @@ func SimuCreateMulti() error {
         }
     }
     return nil
-}
-
-func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string]string, error) {
-    rets := make(map[string]string)
-    //common的固定返回
-    for _, key := range keys {
-        //先取common的值
-        for _, c := range confs {
-            if c.Key == key && c.Namespace == ConfNamespaceCommon {
-                rets[key] = c.Value
-                break
-            }
-        }
-        //再取特定namespace的值，同key的覆盖
-        for _, c := range confs {
-            if c.Key == key && c.Namespace == nameSpace {
-                rets[key] = c.Value
-                break
-            }
-        }
-        if _, ok := rets[key]; !ok {
-            return fmt.Errorf("config for key <%v> not specified!", key)
-        }
-    }
-
-    return rets, nil
 }
 
 func DBFini() {

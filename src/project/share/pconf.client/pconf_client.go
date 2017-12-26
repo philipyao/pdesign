@@ -6,12 +6,10 @@ import (
     "errors"
 
     "project/share/pconf.client/core"
-    "project/share/proto"
 )
 
 const (
     PConfTag            = "pconf"
-
     NameKeyZKAddr       = "zkaddr"
 )
 
@@ -78,7 +76,8 @@ func Load() error {
     if err != nil {
         return err
     }
-    fmt.Println(confs)
-
+    for i, c := range confs {
+        fmt.Printf("fetched confs[%v]: %+v\n", i, c)
+    }
     return nil
 }
