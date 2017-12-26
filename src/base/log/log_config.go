@@ -6,13 +6,13 @@ import (
 )
 
 type logConfigFile struct {
-    fileName    string    `json:"filename"`
-    maxSize     int64     `json:"maxsize"`
-    maxBackup   int       `json:"maxbackup"`
+    FileName    string    `json:"filename"`
+    MaxSize     int64     `json:"maxsize"`
+    MaxBackup   int       `json:"maxbackup"`
 }
 type logConfigNet struct {
-    net         string    `json:"net"`
-    addr        string    `json:"addr"`
+    Net         string    `json:"net"`
+    Addr        string    `json:"addr"`
 }
 
 type logConfig struct {

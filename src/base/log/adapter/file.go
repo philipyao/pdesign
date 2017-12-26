@@ -67,6 +67,7 @@ func (af *AdapterFile) Write(b []byte) error {
 		}
 	}
 
+
 	n, err := af.writer.Write(b)
 	if err != nil {
 		log.Printf("write log file error: %+v, %v", af.writer, err)
@@ -145,5 +146,5 @@ func (af *AdapterFile) openLogFile(fname string) error {
 
 func makeCurrDate() string {
 	_, m, d := time.Now().Date()
-	return fmt.Sprint("%02d%02d", int(m), d)
+	return fmt.Sprintf("%02d%02d", int(m), d)
 }

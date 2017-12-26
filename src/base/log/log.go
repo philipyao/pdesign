@@ -38,7 +38,7 @@ const (
 )
 
 const (
-    LogChanSize           = 10200
+    LogChanSize           = 1024000
 )
 
 const (
@@ -61,7 +61,7 @@ var (
 
 func init() {
     adapters    = make(map[string]adapter.Adapter)
-
+    lvs         = make(map[string]int)
     lvs[LevelStringDebug]   = LevelDebug
     lvs[LevelStringInfo]    = LevelInfo
     lvs[LevelStringWarn]    = LevelWarn
@@ -69,6 +69,7 @@ func init() {
     lvs[LevelStringCrit]    = LevelCrit
     //默认输出INFO
     level = LevelStringInfo
+    flag = LogStd
 
     logChan = make(chan *logMessage, LogChanSize)
     doneChan = make(chan struct{}, 1)
@@ -91,10 +92,10 @@ func AddAdapter(name string, conf string) error {
 
     } else if name == AdapterFile {
         options := &adapter.Options{
-            MaxSize: adapter.ByteSize(logconf.maxSize),
-            MaxBackup: logconf.maxBackup,
+            MaxSize: adapter.ByteSize(logconf.MaxSize),
+            MaxBackup: logconf.MaxBackup,
         }
-        adp, err = adapter.NewAdapterFile(logconf.fileName, options)
+        adp, err = adapter.NewAdapterFile(logconf.FileName, options)
     } else if name == AdapterNet {
 
     } else {
@@ -128,33 +129,33 @@ func Debug(format string, args ...interface{}) {
     if lvs[level] > LevelDebug {
         return
     }
-    output(LevelStringDebug, format, args)
+    output(LevelStringDebug, format, args...)
 }
 
 func Info(format string, args ...interface{}) {
     if lvs[level] > LevelInfo {
         return
     }
-    output(LevelStringInfo, format, args)
+    output(LevelStringInfo, format, args...)
 }
 
 func Warn(format string, args ...interface{}) {
     if lvs[level] > LevelWarn {
         return
     }
-    output(LevelStringWarn, format, args)
+    output(LevelStringWarn, format, args...)
 }
 func Error(format string, args ...interface{}) {
     if lvs[level] > LevelError {
         return
     }
-    output(LevelStringError, format, args)
+    output(LevelStringError, format, args...)
 }
 func Crit(format string, args ...interface{}) {
     if lvs[level] > LevelCrit {
         return
     }
-    output(LevelStringCrit, format, args)
+    output(LevelStringCrit, format, args...)
 }
 
 func Flush() {
@@ -167,7 +168,10 @@ func Flush() {
 
 func output(lvString string, format string, args ...interface{}) {
     tmNow := time.Now()
-    text := tmNow.Format(time.RFC3339)
+    text := tmNow.Format("2016-01-02 15:04:05")
+    if flag & LogMicroTime != 0 {
+        text += fmt.Sprintf(".%06d", tmNow.Nanosecond()/1e3)
+    }
     _, file, line, ok := runtime.Caller(2)
     if !ok {
         file = "???"
@@ -180,12 +184,15 @@ func output(lvString string, format string, args ...interface{}) {
 
     fileName := file + ":" + fmt.Sprintf("%v", line)
     lvStr := fmt.Sprintf("[%v]", lvString)
-    msg := fmt.Sprintf(format, args)
+    msg := fmt.Sprintf(format, args...)
     text = strings.Join([]string{text, fileName, lvStr, msg}, " ")
     text += "\n"
 
     logMsg := logMessageGet()
     logMsg.Buff = []byte(text)
+    if len(logChan) == LogChanSize {
+        fmt.Println("FULL!!!!!")
+    }
     logChan <- logMsg
 }
 
