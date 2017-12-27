@@ -51,18 +51,39 @@ func initDB(obj *Config) error {
     return nil
 }
 
-func loadConfigFromDB() (confs []Config, err error) {
+func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
     if engine == nil {
-        return nil, errors.New("null engine")
+        return nil, nil, errors.New("null engine")
     }
 
-    confs = make([]Config, 0)
+    confs = make([]*Config, 0)
     err = engine.Find(&confs)
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
-
+    tmpMap := make(map[string]bool)
+    for _, c := range confs {
+        tmpMap[c.Namespace] = true
+    }
+    namespaces = make([]string, 0, len(tmpMap))
+    for k := range tmpMap {
+        namespaces = append(namespaces, k)
+    }
     return
+}
+
+func updateDB(opConf *Config) error {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Id(opConf.ID).Cols("value").Update(opConf)
+    if err != nil {
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
 }
 
 func SimuCreateMulti() error {

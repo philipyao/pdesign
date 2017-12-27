@@ -15,11 +15,11 @@ func TestWatch(t *testing.T) {
     }
     defer zkConn.Close()
 
-    if err := zkConn.Delete("/gozk-test-w1", -1); err != nil && err != zk.ErrNoNode {
+    if err := zkConn.Conn().Delete("/gozk-test-w1", -1); err != nil && err != zk.ErrNoNode {
         t.Fatalf("Delete returned error: %+v", err)
     }
 
-    testPath, err := zkConn.Create("/gozk-test-w1", []byte{}, 0, zk.WorldACL(zk.PermAll))
+    testPath, err := zkConn.Conn().Create("/gozk-test-w1", []byte{}, 0, zk.WorldACL(zk.PermAll))
     if err != nil {
         t.Fatalf("Create returned: %+v", err)
     }
@@ -49,12 +49,12 @@ func TestWatchChildren(t *testing.T) {
     if err != nil {
         t.Fatalf("Connect returned error: %+v", err)
     }
-    defer zkConn.Close()
+    defer zkConn.Conn().Close()
 
-    if err := zkConn.Delete("/gozk-test-wc", -1); err != nil && err != zk.ErrNoNode {
+    if err := zkConn.Conn().Delete("/gozk-test-wc", -1); err != nil && err != zk.ErrNoNode {
         t.Fatalf("Delete returned error: %+v", err)
     }
-    testPath, err := zkConn.Create("/gozk-test-wc", []byte{}, 0, zk.WorldACL(zk.PermAll))
+    testPath, err := zkConn.Conn().Create("/gozk-test-wc", []byte{}, 0, zk.WorldACL(zk.PermAll))
     if err != nil {
         t.Fatalf("Create returned: %+v", err)
     }
@@ -75,13 +75,13 @@ func TestCreateEphemeral(t *testing.T) {
     if err != nil {
         t.Fatalf("Connect returned error: %+v", err)
     }
-    defer zkConn.Close()
+    defer zkConn.Conn().Close()
 
     err = CreateEphemeral(zkConn, "/go-zktest-ephemeral1", []byte{})
     if err != nil {
         t.Fatal(err)
     }
     //模拟session断开
-    zkConn.TmpCloseConn()
+    zkConn.Conn().TmpCloseConn()
     time.Sleep(60 * time.Second)
 }

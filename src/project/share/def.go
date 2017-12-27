@@ -14,3 +14,11 @@ const (
     ServerTypeSessionsvr            = 53
     ServerTypeDBsvr                 = 54
 )
+
+const (
+    ZKPrefixConfig      = "/config"
+)
+
+const (
+    ConfigKeyZKAddr     = "zkaddr"
+)

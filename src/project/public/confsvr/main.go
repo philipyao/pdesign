@@ -55,7 +55,14 @@ func main() {
     setLog()
     Log.Println("hello server!")
 
-    initCore()
+    err := initCore()
+    if err != nil {
+        Log.Println(err)
+    }
+    err  = updateConfig("common", "log_maxsize", "100")
+    if err != nil {
+        Log.Println(err)
+    }
     handleSignal()
 
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)

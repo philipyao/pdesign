@@ -3,6 +3,9 @@ package main
 import (
     "fmt"
     "time"
+    "errors"
+
+    "project/share"
 )
 
 const (
@@ -26,7 +29,8 @@ func (c Config) TableName() string {
 }
 
 var (
-    confs []Config
+    namespaces []string
+    confs []*Config
 )
 
 func initCore() error {
@@ -35,13 +39,61 @@ func initCore() error {
     if err != nil {
         return err
     }
-    confs, err = loadConfigFromDB()
+
+    confs, namespaces, err = loadConfigFromDB()
     if err != nil {
         return err
     }
     Log.Printf("confs: %+v\n", confs)
 
+    var zkaddr string
+    for _, c := range confs {
+        if c.Namespace == ConfNamespaceCommon && c.Key == share.ConfigKeyZKAddr {
+            zkaddr = c.Value
+            break
+        }
+    }
+    if zkaddr == "" {
+        return errors.New("no zkaddr config specified!")
+    }
+
+    err = initZK(zkaddr)
+    if err != nil {
+        return err
+    }
+
+    for _, n := range namespaces {
+        err = attachNamespaceWithZK(n)
+        if err != nil {
+            Log.Println(err)
+        }
+    }
+    for _, c := range confs {
+        Log.Printf("attach %v %v\n", c.Namespace, c.Key)
+        err = attachWithZK(c.Namespace, c.Key)
+        if err != nil {
+            Log.Println(err)
+        }
+    }
+
     return nil
+}
+
+func updateConfig(namespace, key, value string) error {
+    var opConf *Config
+    for _, conf := range confs {
+        if conf.Namespace == namespace && conf.Key == key {
+            opConf = conf
+            break
+        }
+    }
+    if opConf == nil {
+        return fmt.Errorf("error update: config<%v %v> not found.", namespace, key)
+    }
+    if opConf.Value == value {
+        return fmt.Errorf("error update: config<%v %v> unchanged", namespace, key)
+    }
+    return updateByConfig(opConf, value)
 }
 
 func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string]string, error) {
@@ -68,4 +120,13 @@ func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string]string,
     }
 
     return rets, nil
+}
+
+func updateByConfig(opConf *Config, value string) error {
+    opConf.Value = value
+    err := updateDB(opConf)
+    if err != nil {
+        return err
+    }
+    return notifyWithZK(opConf.Namespace, opConf.Key)
 }

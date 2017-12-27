@@ -20,7 +20,35 @@ const (
     DefaultConnectTimeout       = 5
 )
 
-func Connect(zkAddr string) (*zk.Conn, error) {
+type Conn struct {
+    conn *zk.Conn
+}
+func (c *Conn) Conn() *zk.Conn {
+    return c.conn
+}
+func (c *Conn) SetConn(conn *zk.Conn) {
+    c.conn = conn
+}
+
+func (c *Conn) Write(path string, data []byte) error {
+    exist, stat, err := c.conn.Exists(path)
+    if err != nil {
+        return err
+    }
+    if exist {
+        fmt.Printf("set %v\n", path)
+        _, err = c.conn.Set(path, data, stat.Version)
+    } else {
+        //不存在则创建
+        // 永久节点
+        fmt.Printf("create %v\n", path)
+        flags := int32(0)
+        _, err = doCreate(c.conn, path, data, flags)
+    }
+    return err
+}
+
+func Connect(zkAddr string) (*Conn, error) {
     if len(zkAddr) == 0 {
         return nil, fmt.Errorf("empty zkAddr")
     }
@@ -30,25 +58,13 @@ func Connect(zkAddr string) (*zk.Conn, error) {
         return nil, fmt.Errorf("err connect to zk<%v>: %v", zkAddr, err)
     }
 
-    return conn, nil
+    c := new(Conn)
+    c.SetConn(conn)
+    return c, nil
 }
 
-func Create(zkConn *zk.Conn, path string, data []byte) error {
-    exist, _, err := zkConn.Exists(path)
-    if err != nil {
-        return err
-    }
-    if exist {
-        return nil
-    }
-    // 永久节点
-    flags := int32(0)
-    _, err = doCreate(zkConn, path, data, flags)
-    return err
-}
-
-func CreateEphemeral(zkConn *zk.Conn, path string, data []byte) error {
-    exist, _, err := zkConn.Exists(path)
+func CreateEphemeral(zkConn *Conn, path string, data []byte) error {
+    exist, _, err := zkConn.Conn().Exists(path)
     if err != nil {
         return err
     }
@@ -56,17 +72,17 @@ func CreateEphemeral(zkConn *zk.Conn, path string, data []byte) error {
         return nil
     }
     // 临时节点
-    _, err = doCreate(zkConn, path, data, int32(zk.FlagEphemeral))
+    _, err = doCreate(zkConn.Conn(), path, data, int32(zk.FlagEphemeral))
     return err
 }
 
-func CreateSequence(zkConn *zk.Conn, path string, data []byte) (string, error) {
+func CreateSequence(zkConn *Conn, path string, data []byte) (string, error) {
     flags := int32(zk.FlagSequence | zk.FlagEphemeral)
-    return doCreate(zkConn, path, data, flags)
+    return doCreate(zkConn.Conn(), path, data, flags)
 }
 
-func Watch(zkConn *zk.Conn, path string, cb FuncWatchCallback, stopCh chan struct{}) error {
-    _, ch, err := getW(zkConn, path)
+func Watch(zkConn *Conn, path string, cb FuncWatchCallback, stopCh chan struct{}) error {
+    _, ch, err := getW(zkConn.Conn(), path)
     if err != nil {
         return err
     }
@@ -89,7 +105,7 @@ func Watch(zkConn *zk.Conn, path string, cb FuncWatchCallback, stopCh chan struc
             }
             // 获取变化后的节点数据
             // 并更新watcher（zookeeper的watcher是一次性的）
-            data, ch, err = getW(zkConn, path)
+            data, ch, err = getW(zkConn.Conn(), path)
             if err != nil {
                 //错误回调
                 cb(path, nil, err)
@@ -103,8 +119,8 @@ func Watch(zkConn *zk.Conn, path string, cb FuncWatchCallback, stopCh chan struc
     return nil
 }
 
-func WatchChildren(zkConn *zk.Conn, path string, cb FuncWatchChildrenCallback, stopCh chan struct{}) error {
-    _, ch, err := childrenW(zkConn, path)
+func WatchChildren(zkConn *Conn, path string, cb FuncWatchChildrenCallback, stopCh chan struct{}) error {
+    _, ch, err := childrenW(zkConn.Conn(), path)
     if err != nil {
         return err
     }
@@ -127,7 +143,7 @@ func WatchChildren(zkConn *zk.Conn, path string, cb FuncWatchChildrenCallback, s
             // 获取变化后的节点数据
             // 并更新watcher（zookeeper的watcher是一次性的）
             var children []string
-            children, ch, err = childrenW(zkConn, path)
+            children, ch, err = childrenW(zkConn.Conn(), path)
             if err != nil {
                 //错误回调
                 cb(path, nil, err)
