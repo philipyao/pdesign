@@ -16,6 +16,7 @@ type FetchConfigRes struct {
     Confs           []*ConfigEntry
 }
 type ConfigEntry struct {
+    Namespace       string      //实际所处的namespace
     Key             string
     Value           string
 }

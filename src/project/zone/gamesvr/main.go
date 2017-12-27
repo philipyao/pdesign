@@ -61,7 +61,7 @@ func main() {
     if err != nil {
         log.Error("InitConf: %v", err)
     }
-    err = LoadConf()
+    err = LoadConf(done)
     if err != nil {
         log.Error("LoadConf: %v", err)
     }

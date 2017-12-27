@@ -19,7 +19,6 @@ const (
 type GameConf struct {
     logLevel        string          `pconf:"log_level"`
     enableVip       int             `pconf:"enable_vip"`
-    notExist        int             `pconf:"not_exist"`
 }
 
 func InitConf() error {
@@ -32,8 +31,8 @@ func InitConf() error {
     return nil
 }
 
-func LoadConf() error {
-    return pconfclient.Load()
+func LoadConf(done chan struct{}) error {
+    return pconfclient.Load(done)
 }
 
 func (gc *GameConf) LogLevel() string {
@@ -74,18 +73,6 @@ func (gc *GameConf) SetEnableVip(val string) error {
 func (gc *GameConf) OnUpdateEnableVip(oldVal, val string) {
     //do nothing
 }
-
-func (gc *GameConf) NotExist() int {
-    return gc.notExist
-}
-func (gc *GameConf) SetNotExist(val string) error {
-    return nil
-}
-func (gc *GameConf) OnUpdateNotExist(oldVal, val string) {
-    //do nothing
-}
-
-//============================================================
 
 
 

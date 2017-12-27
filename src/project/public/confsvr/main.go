@@ -59,7 +59,7 @@ func main() {
     if err != nil {
         Log.Println(err)
     }
-    err  = updateConfig("common", "log_maxsize", "100")
+    err  = updateConfig("common", "log_level", "DEBUG")
     if err != nil {
         Log.Println(err)
     }

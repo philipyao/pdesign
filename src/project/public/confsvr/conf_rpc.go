@@ -35,8 +35,9 @@ func (r *RpcWorker) FetchConfig(args *proto.FetchConfigArg,
     }
     for k, v := range confMap {
         response.Confs = append(response.Confs, &proto.ConfigEntry{
+            Namespace: v[0],
             Key:    k,
-            Value:  v,
+            Value:  v[1],
         })
     }
     return nil

@@ -96,21 +96,21 @@ func updateConfig(namespace, key, value string) error {
     return updateByConfig(opConf, value)
 }
 
-func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string]string, error) {
-    rets := make(map[string]string)
+func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]string, error) {
+    rets := make(map[string][]string)
     //common的固定返回
     for _, key := range keys {
         //先取common的值
         for _, c := range confs {
             if c.Key == key && c.Namespace == ConfNamespaceCommon {
-                rets[key] = c.Value
+                rets[key] = []string{c.Namespace, c.Value}
                 break
             }
         }
         //再取特定namespace的值，同key的覆盖
         for _, c := range confs {
             if c.Key == key && c.Namespace == nameSpace {
-                rets[key] = c.Value
+                rets[key] = []string{c.Namespace, c.Value}
                 break
             }
         }

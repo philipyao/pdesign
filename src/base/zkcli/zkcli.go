@@ -48,6 +48,44 @@ func (c *Conn) Write(path string, data []byte) error {
     return err
 }
 
+func (c *Conn) Watch(path string, cb FuncWatchCallback, stopCh chan struct{}) error {
+    _, ch, err := getW(c.conn, path)
+    if err != nil {
+        return err
+    }
+    go func() {
+        var data []byte
+        for {
+            select {
+            case <-stopCh:
+                return
+            case ev := <-ch:
+                if ev.Err != nil {
+                    //错误回调
+                    cb(path, nil, ev.Err)
+                    return
+                }
+                if ev.Path != path {
+                    cb(path, nil, fmt.Errorf("mismatched path %v %v", ev.Path, path))
+                    return
+                }
+            }
+            // 获取变化后的节点数据
+            // 并更新watcher（zookeeper的watcher是一次性的）
+            data, ch, err = getW(c.conn, path)
+            if err != nil {
+                //错误回调
+                cb(path, nil, err)
+                return
+            }
+            //数据回调
+            cb(path, data, nil)
+        }
+    }()
+
+    return nil
+}
+
 func Connect(zkAddr string) (*Conn, error) {
     if len(zkAddr) == 0 {
         return nil, fmt.Errorf("empty zkAddr")
@@ -81,43 +119,7 @@ func CreateSequence(zkConn *Conn, path string, data []byte) (string, error) {
     return doCreate(zkConn.Conn(), path, data, flags)
 }
 
-func Watch(zkConn *Conn, path string, cb FuncWatchCallback, stopCh chan struct{}) error {
-    _, ch, err := getW(zkConn.Conn(), path)
-    if err != nil {
-        return err
-    }
-    go func() {
-        var data []byte
-        for {
-            select {
-            case <-stopCh:
-                return
-            case ev := <-ch:
-                if ev.Err != nil {
-                    //错误回调
-                    cb(path, nil, ev.Err)
-                    return
-                }
-                if ev.Path != path {
-                    cb(path, nil, fmt.Errorf("mismatched path %v %v", ev.Path, path))
-                    return
-                }
-            }
-            // 获取变化后的节点数据
-            // 并更新watcher（zookeeper的watcher是一次性的）
-            data, ch, err = getW(zkConn.Conn(), path)
-            if err != nil {
-                //错误回调
-                cb(path, nil, err)
-                return
-            }
-            //数据回调
-            cb(path, data, nil)
-        }
-    }()
 
-    return nil
-}
 
 func WatchChildren(zkConn *Conn, path string, cb FuncWatchChildrenCallback, stopCh chan struct{}) error {
     _, ch, err := childrenW(zkConn.Conn(), path)

@@ -53,7 +53,10 @@ func EntryKeys() []string {
 //初始化特定配置值
 func InitEntry(key, val string) error {
     processor, ok := processors[key]
-    if !ok {return ResUpdateIgnoreKey}
+    if !ok {
+        fmt.Printf("InitEntry: key<%v> not found\n", key)
+        return ResUpdateIgnoreKey
+    }
 
     //call set
     in := []reflect.Value{reflect.ValueOf(val)}
