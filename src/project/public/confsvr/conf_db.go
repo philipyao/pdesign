@@ -5,18 +5,16 @@ import (
     "fmt"
     "time"
 
-    //"github.com/jinzhu/gorm"
     _ "github.com/jinzhu/gorm/dialects/mysql"
 
     "github.com/go-xorm/xorm"
     "github.com/go-xorm/core"
+
+    "base/log"
 )
 
 var (
-    //db *gorm.DB
     engine *xorm.Engine
-
-
 )
 
 type UserSimu struct {
@@ -33,7 +31,7 @@ func initDB(obj *Config) error {
     var err error
     engine, err = xorm.NewEngine("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
     if err != nil {
-        Log.Printf("xorm.NewEngine error %v\n", err)
+        log.Error("xorm.NewEngine error %v", err)
         return err
     }
     engine.ShowSQL(true)
@@ -41,12 +39,13 @@ func initDB(obj *Config) error {
     engine.SetMapper(core.GonicMapper{})
     err = engine.Ping()
     if err != nil {
-        Log.Printf("engine.Ping error %v\n", err)
+        log.Error("engine.Ping() error %v", err)
         return err
     }
     err = engine.Sync2(obj)
     if err != nil {
-        Log.Println(err)
+        log.Error("engine.Sync2() error %v", err)
+        return err
     }
     return nil
 }
@@ -59,6 +58,7 @@ func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
     confs = make([]*Config, 0)
     err = engine.Find(&confs)
     if err != nil {
+        log.Error("engine.Find() error %v", err)
         return nil, nil, err
     }
     tmpMap := make(map[string]bool)
@@ -78,6 +78,22 @@ func updateDB(opConf *Config) error {
     }
     affected, err := engine.Id(opConf.ID).Cols("value").Update(opConf)
     if err != nil {
+        log.Error("engine.Update() error %v, opConf %+v", err, opConf)
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
+}
+
+func addDB(opConf *Config) error {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Insert(opConf)
+    if err != nil {
+        log.Error("engine.Insert() error %v, opConf %+v", err, opConf)
         return err
     }
     if affected != 1 {
@@ -89,32 +105,20 @@ func updateDB(opConf *Config) error {
 func SimuCreateMulti() error {
     const TBL_USER_NUM  = 2
     var err error
-    //for i := 1; i <= TBL_USER_NUM; i++{
-    //    tblName := fmt.Sprintf("t_simu_user_%02d", i)
-    //    err = db.DropTableIfExists(tblName).Error
-    //    if err != nil {
-    //        Log.Println("DropTableIfExists %v error: %v\n", tblName, err)
-    //        return err
-    //    }
-    //    err = db.Table(tblName).Set("gorm:table_options", "ENGINE=InnoDB").CreateTable(&UserSimu{}).Error
-    //    if err != nil {
-    //        Log.Println("CreateTable %v error: %v\n", tblName, err)
-    //        return err
-    //    }
-    //}
     for i := 1; i <= TBL_USER_NUM; i++{
         tblName := fmt.Sprintf("t_simu_user_%02d", i)
         err = engine.Table(tblName).Sync2(&UserSimu{})
         if err != nil {
-            Log.Println("Sync2 %v error: %v\n", tblName, err)
+            log.Error("Sync2 %v error: %v", tblName, err)
             return err
         }
     }
     return nil
 }
 
-func DBFini() {
+func finiDB() {
     if engine != nil {
+        log.Info("close connection to db engine.")
         engine.Close()
     }
 }

@@ -30,18 +30,20 @@ func (c *Conn) SetConn(conn *zk.Conn) {
     c.conn = conn
 }
 
+func (c *Conn) Close() {
+    c.conn.Close()
+}
+
 func (c *Conn) Write(path string, data []byte) error {
     exist, stat, err := c.conn.Exists(path)
     if err != nil {
         return err
     }
     if exist {
-        fmt.Printf("set %v\n", path)
         _, err = c.conn.Set(path, data, stat.Version)
     } else {
         //不存在则创建
         // 永久节点
-        fmt.Printf("create %v\n", path)
         flags := int32(0)
         _, err = doCreate(c.conn, path, data, flags)
     }

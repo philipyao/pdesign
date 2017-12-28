@@ -4,13 +4,12 @@ import (
     "fmt"
     "os"
     "os/signal"
-    "log"
-    "time"
     "flag"
     "sync"
     "path/filepath"
     "syscall"
 
+    "base/log"
     "base/util"
     "project/share"
 )
@@ -23,8 +22,6 @@ var (
     ptrWanIP          *string
 
     serverType  int
-
-    Log         *log.Logger
 
     done        chan struct{}
     wg          *sync.WaitGroup
@@ -44,48 +41,42 @@ func init() {
 }
 
 func shutdown() {
-    Log.Println("shutdown server")
+    log.Info("graceful shutdown server...")
     close(done)
 }
 
 func main() {
-    log.Println()
-
     readFlags()
     setLog()
-    Log.Println("hello server!")
 
+    log.Info("====> confsvr start <====")
     err := initCore()
     if err != nil {
-        Log.Println(err)
-    }
-    err  = updateConfig("common", "log_level", "DEBUG")
-    if err != nil {
-        Log.Println(err)
+        log.Error(err.Error())
     }
     handleSignal()
 
     serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
-
+    serveHttp(done)
     writePid()
 
     wg.Wait()
 
-    DBFini()
+    finiCore()
     removePid()
 
-    Log.Println("server exit.")
+    log.Info("server exit.")
+    log.Flush()
 }
 
 func readFlags() {
     flag.Parse()
     if *ptrPort <= 0 {
-        log.Fatalf("invalid port: %v", *ptrPort)
+        panic("invalid port")
     }
     if *ptrClusterID <= 0 {
-        log.Fatalf("invalid clusterid: %v", *ptrClusterID)
+        panic("invalid clusterid")
     }
-    log.Printf("port %v, clusterid %v\n", *ptrPort, *ptrClusterID)
 }
 
 func processName() string {
@@ -98,38 +89,41 @@ func processName() string {
 }
 
 func setLog() {
-    svrname := filepath.Base(os.Args[0])
-    log.Printf("svrname %v\n", svrname)
-    _, month, day := time.Now().Date()
-    logname := processName() + fmt.Sprintf(".%v%v", int(month), day) + ".log"
-    logname = filepath.Join("log", logname)
-    log.Printf("svrname: %v, logname: %v\n", svrname, logname)
-    f, err := os.OpenFile(logname, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    config := `{"filename": "%v", "maxsize": 102400, "maxbackup": 10}`
+    wd, err := os.Getwd()
     if err != nil {
-        log.Fatalf("open logfile error : %v", err)
+        panic(err)
     }
-
-    Log = log.New(f, "", log.Ldate|log.Lmicroseconds|log.Llongfile)
+    logName := filepath.Join(wd, "log", processName())
+    config = fmt.Sprintf(config, logName)
+    fmt.Printf("log config: %+v\n", config)
+    err = log.AddAdapter(log.AdapterFile, config)
+    if err != nil {
+        panic(err)
+    }
+    log.SetLevel(log.LevelStringDebug)
+    log.SetFlags(log.LogDate | log.LogTime | log.LogMicroTime | log.LogLongFile)
 }
 
 func writePid() {
     pName := processName()
     pidFile := util.GenPidFilePath(pName)
     util.WritePidToFile(pidFile, os.Getpid())
-    Log.Printf("pidfile %v, pid %v", pidFile, os.Getpid())
+    log.Info("writePid: pidfile %v, pid %v", pidFile, os.Getpid())
 }
 
 func removePid() {
     pName := processName()
     pidFile := util.GenPidFilePath(pName)
     util.DeletePidFile(pidFile)
+    log.Info("removePid: pidfile %v", pidFile)
 }
 
 func handleSignal() {
     sigs := make(chan os.Signal, 1)
     signal.Notify(sigs, syscall.SIGTERM)
     go func() {
-        Log.Printf("receive sig %v\n", <-sigs)
+        log.Info("receive sig %v", <-sigs)
         shutdown()
     }()
     return

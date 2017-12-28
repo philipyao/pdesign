@@ -3,6 +3,7 @@ package main
 import (
     "strings"
     "base/zkcli"
+    "base/log"
 
     "project/share"
 )
@@ -12,15 +13,22 @@ var (
 )
 
 func initZK(zkaddr string) error {
-    Log.Printf("initZK: %v", zkaddr)
+    log.Info("initZK: %v", zkaddr)
     c, err := zkcli.Connect(zkaddr)
     if err != nil {
+        log.Error("initZK err: %v", err.Error())
         return err
     }
     conn = c
     return conn.Write(share.ZKPrefixConfig, []byte{})
 }
 
+func finiZK() {
+    if conn != nil {
+        log.Info("close connection to ZK.")
+        conn.Close()
+    }
+}
 func attachNamespaceWithZK(namespace string) error {
     configPath := strings.Join([]string{share.ZKPrefixConfig, namespace}, "/")
     return conn.Write(configPath, []byte{})

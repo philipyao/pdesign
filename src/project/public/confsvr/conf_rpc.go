@@ -2,19 +2,17 @@ package main
 
 import (
     "fmt"
-    "log"
     "time"
     "net"
     "net/rpc"
 
+    "base/log"
     "project/share/proto"
 )
 
 const (
     RpcName         = "Conf"
 )
-
-
 
 type RpcWorker int
 
@@ -27,7 +25,7 @@ func (r *RpcWorker) GamesvrHello(args *proto.GameHelloArg,
 //根据特定namespace获取配置键值对
 func (r *RpcWorker) FetchConfig(args *proto.FetchConfigArg,
                                 response *proto.FetchConfigRes) error {
-    Log.Printf("FetchConfig: args %+v\n", args)
+    log.Debug("[rpc]FetchConfig: args %+v", args)
     confMap, err := ConfigWithNamespaceKey(args.Namespace, args.Keys)
     if err != nil {
         response.Errmsg = err.Error()
@@ -46,18 +44,20 @@ func (r *RpcWorker) FetchConfig(args *proto.FetchConfigArg,
 
 //==============================================================================
 
-func serveRPC(done chan struct{}, port int, clusterID, index int) {
+func serveRPC(done chan struct{}, port int, clusterID, index int) error {
     rpc.RegisterName(RpcName, new(RpcWorker))
 
     addr := fmt.Sprintf("%v:%v", *ptrIP, port)
     laddr, err := net.ResolveTCPAddr("tcp", addr)
     if err != nil {
-        log.Fatalln(err)
+        log.Error(err.Error())
+        return err
     }
 
     l, e := net.ListenTCP("tcp", laddr)
     if e != nil {
-        log.Fatal("Error: listen on ", laddr, e)
+        log.Error("Error: listen on %v, %v", laddr, e)
+        return e
     }
 
     wg.Add(1)
@@ -65,7 +65,9 @@ func serveRPC(done chan struct{}, port int, clusterID, index int) {
 
     //注册rpc地址到zk TODO
     serverID := fmt.Sprintf("%v.%v.%v", clusterID, serverType, index)
-    Log.Printf("server %v rpc serve %v\n", serverID, addr)
+    log.Info("server %v rpc serve %v", serverID, addr)
+
+    return nil
 }
 
 func doServe(listener *net.TCPListener) {
@@ -75,7 +77,7 @@ func doServe(listener *net.TCPListener) {
     for {
         select {
         case <-done:
-            Log.Printf("stopping rpc listening on %v...", listener.Addr())
+            log.Info("stop rpc listening on %v...", listener.Addr())
             return
         default:
         }
@@ -85,7 +87,7 @@ func doServe(listener *net.TCPListener) {
             if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
                 continue
             }
-            Log.Printf("Error: accept rpc connection, %v", err.Error())
+            log.Error("Error: accept rpc connection, %v", err.Error())
         }
         //TODO wg.Add(1)
         go rpc.ServeConn(conn)

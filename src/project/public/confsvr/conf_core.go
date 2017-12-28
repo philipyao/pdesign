@@ -5,6 +5,7 @@ import (
     "time"
     "errors"
 
+    "base/log"
     "project/share"
 )
 
@@ -37,14 +38,17 @@ func initCore() error {
     var err error
     err = initDB(new(Config))
     if err != nil {
+        log.Error(err.Error())
         return err
     }
 
+    log.Debug("loadConfigFromDB")
     confs, namespaces, err = loadConfigFromDB()
     if err != nil {
+        log.Error(err.Error())
         return err
     }
-    Log.Printf("confs: %+v\n", confs)
+    log.Debug("confs: %+v", confs)
 
     var zkaddr string
     for _, c := range confs {
@@ -65,18 +69,23 @@ func initCore() error {
     for _, n := range namespaces {
         err = attachNamespaceWithZK(n)
         if err != nil {
-            Log.Println(err)
+            log.Error(err.Error())
         }
     }
     for _, c := range confs {
-        Log.Printf("attach %v %v\n", c.Namespace, c.Key)
+        log.Debug("attach %v %v", c.Namespace, c.Key)
         err = attachWithZK(c.Namespace, c.Key)
         if err != nil {
-            Log.Println(err)
+            log.Error(err.Error())
         }
     }
 
     return nil
+}
+
+func finiCore()  {
+    finiDB()
+    finiZK()
 }
 
 func updateConfig(namespace, key, value string) error {
@@ -94,6 +103,24 @@ func updateConfig(namespace, key, value string) error {
         return fmt.Errorf("error update: config<%v %v> unchanged", namespace, key)
     }
     return updateByConfig(opConf, value)
+}
+
+func addConfig(namespace, key, value string) error {
+    for _, conf := range confs {
+        if conf.Namespace == namespace && conf.Key == key {
+            return fmt.Errorf("duplicated entry: %v %v", namespace, key)
+        }
+    }
+    var err error
+    var addConf Config
+    addConf.Namespace = namespace
+    addConf.Key = key
+    addConf.Value = value
+    err = addDB(&addConf)
+    if err != nil {
+        return err
+    }
+    return nil
 }
 
 func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]string, error) {
@@ -120,6 +147,14 @@ func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]strin
     }
 
     return rets, nil
+}
+
+func AllConfig() []Config {
+    var results []Config
+    for _, c := range confs {
+        results = append(results, *c)
+    }
+    return results
 }
 
 func updateByConfig(opConf *Config, value string) error {

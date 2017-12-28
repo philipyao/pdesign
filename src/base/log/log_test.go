@@ -34,6 +34,9 @@ func TestLogFile(t *testing.T) {
     Flush()
 }
 
+func TestDefaultLog(t *testing.T) {
+    Debug("foo bar")
+}
 
 func BenchmarkLogFile(b *testing.B) {
     config := `{"filename": "benchmark", "maxsize": 102400000, "maxbackup": 10}`
