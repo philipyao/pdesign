@@ -46,15 +46,7 @@ func handle_admin() {
         results := AllConfig()
         var rsp AdminListRsp
         for _, r := range results {
-            rsp.Entries = append(rsp.Entries, &ConfEntry{
-                ID:             r.ID,
-                Namespace:      r.Namespace,
-                Key:            r.Key,
-                Value:          r.Value,
-                Updated:        uint32(r.UpdatedAt.Unix()),
-                Created:        uint32(r.CreatedAt.Unix()),
-                Version:        r.Version,
-            })
+            rsp.Entries = append(rsp.Entries, dumpConfEntry(r))
         }
         doWriteJson(w, rsp)
     })
@@ -62,7 +54,7 @@ func handle_admin() {
     http.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
-            http.Error(w, "inv method", http.StatusBadRequest)
+            http.Error(w, "inv method", http.StatusMethodNotAllowed)
             return
         }
         reqdata, err := ioutil.ReadAll(r.Body)
@@ -72,7 +64,7 @@ func handle_admin() {
         }
         if len(reqdata) == 0 {
             log.Error("no reqdata for /api/add")
-            http.Error(w, "no reqdata for /api/add", http.StatusBadRequest)
+            http.Error(w, "no reqdata for /api/add", http.StatusNoContent)
             return
         }
         var req AdminAddReq
@@ -82,6 +74,14 @@ func handle_admin() {
             http.Error(w, "error parse json reqdata for /api/add", http.StatusBadRequest)
             return
         }
+        c, err := addConfig(req.Namespace, req.Key, req.Value)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusBadRequest)
+            return
+        }
+        var rsp AdminAddRsp
+        rsp.Entry = dumpConfEntry(*c)
+        doWriteJson(w, rsp)
     })
 
     http.HandleFunc("/api/update", func(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +91,18 @@ func handle_admin() {
             return
         }
     })
+}
+
+func dumpConfEntry(c Config) *ConfEntry {
+    return &ConfEntry{
+        ID:             c.ID,
+        Namespace:      c.Namespace,
+        Key:            c.Key,
+        Value:          c.Value,
+        Updated:        uint32(c.UpdatedAt.Unix()),
+        Created:        uint32(c.CreatedAt.Unix()),
+        Version:        c.Version,
+    }
 }
 
 func doWriteJson(w http.ResponseWriter, pkg interface{}) {

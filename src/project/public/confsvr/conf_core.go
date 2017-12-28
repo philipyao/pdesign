@@ -105,10 +105,10 @@ func updateConfig(namespace, key, value string) error {
     return updateByConfig(opConf, value)
 }
 
-func addConfig(namespace, key, value string) error {
+func addConfig(namespace, key, value string) (*Config, error) {
     for _, conf := range confs {
         if conf.Namespace == namespace && conf.Key == key {
-            return fmt.Errorf("duplicated entry: %v %v", namespace, key)
+            return nil, fmt.Errorf("duplicated entry: %v %v", namespace, key)
         }
     }
     var err error
@@ -118,9 +118,20 @@ func addConfig(namespace, key, value string) error {
     addConf.Value = value
     err = addDB(&addConf)
     if err != nil {
-        return err
+        return nil, err
     }
-    return nil
+    confs = append(confs, &addConf)
+    addNamespace := true
+    for _, n := range namespaces {
+        if n == namespace {
+            addNamespace = false
+            break
+        }
+    }
+    if addNamespace {
+        namespaces = append(namespaces, namespace)
+    }
+    return &addConf, nil
 }
 
 func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]string, error) {
