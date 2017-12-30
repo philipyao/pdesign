@@ -9,6 +9,15 @@ import(
     "base/log"
 )
 
+type AdminLoginRsp struct {
+    Userinfo    *SUserinfo           `json:"userinfo"`
+}
+
+type SUserinfo struct {
+    Username        string          `json:"username"`
+    Token           string          `json:"token"`
+}
+
 type AdminListRsp struct {
     Entries      []*ConfEntry          `json:"entries"`
 }
@@ -34,6 +43,25 @@ type AdminAddRsp struct {
 func handle_admin() {
 
     http.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) {
+        err := r.ParseForm()
+        if err != nil {
+            log.Error("parse form error: %v", err)
+            http.Error(w, err.Error(), http.StatusBadRequest)
+            return
+        }
+        if r.Method != "POST" {
+            fmt.Printf("handle http request, method %v\n", r.Method)
+            http.Error(w, "inv method", http.StatusMethodNotAllowed)
+            return
+        }
+
+        userName, passwd, veriCode := r.FormValue("username"), r.FormValue("password"), r.FormValue("code")
+        log.Debug("ADMIN LOGIN: [%v] [%v] [%v]", userName, passwd, veriCode)
+        w.Header().Set("Content-Type", "application/json")
+        var loginRsp AdminLoginRsp
+        loginRsp.Userinfo.Username = userName
+        loginRsp.Userinfo.Token = "HXS04KSSS"
+        doWriteJson(w, loginRsp)
     })
 
     http.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +150,7 @@ func doWriteError(w http.ResponseWriter, errmsg string) {
 
 //=======================================================
 func startHttpServer() *http.Server {
-    srv := &http.Server{Addr: ":8080"}
+    srv := &http.Server{Addr: ":8999"}
 
     handle_admin()
 
