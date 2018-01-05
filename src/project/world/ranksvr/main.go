@@ -10,7 +10,10 @@ const (
 
 func main() {
     name, worker := NewRpc()
-    srv.HandleRpc(name, worker)
+    err := srv.HandleRpc(name, worker)
+    if err != nil {
+        panic(err)
+    }
     srv.Run()
 }
 
