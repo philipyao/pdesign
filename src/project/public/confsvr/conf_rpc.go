@@ -89,7 +89,6 @@ func doServe(listener *net.TCPListener) {
             }
             log.Error("Error: accept rpc connection, %v", err.Error())
         }
-        //TODO wg.Add(1)
         go rpc.ServeConn(conn)
     }
 }
