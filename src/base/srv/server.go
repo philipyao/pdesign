@@ -15,8 +15,11 @@ import (
     "base/prpc"
 )
 
-type Func func()
 type server struct {
+    pName       string
+
+    bInited     bool
+
     done        chan struct{}
     wg          sync.WaitGroup
 
@@ -25,7 +28,9 @@ type server struct {
     argIP       *string
     argPort     *int
 
-    initFunc    Func
+    initFunc        func(chan struct{}) error
+    shutdownFunc    func()
+    logFunc          func(format string, args ...interface{})
 
     rpc         *prpc.Worker
 }
@@ -40,27 +45,39 @@ func init() {
 
 var defaultSrv  = &server{done: make(chan struct{})}
 
-func (sv *server) Addr() string {
+func (sv *server) addr() string {
     return fmt.Sprintf("%v:%v", *sv.argIP, *sv.argPort)
 }
 
-func (sv *server) SetRpc(r *prpc.Worker) {
+func (sv *server) setRpc(r *prpc.Worker) {
     sv.rpc = r
 }
 
-func (sv *server) Serve() {
-    log.Println("server start...")
+func (sv *server) init() error {
+    sv.logFunc("server start...")
 
+    if sv.bInited {
+        panic("already inited.")
+    }
     sv.initArgs()
     sv.readArgs()
 
-    if sv.initFunc != nil {
-        sv.initFunc()
+    err := sv.initFunc(sv.done)
+    if err != nil {
+        return err
     }
+    sv.bInited = true
+    sv.logFunc("server init ok.")
+    return nil
+}
 
+func (sv *server) serve() {
+    if !sv.bInited {
+        panic("not inited")
+    }
     if sv.rpc != nil {
         sv.wg.Add(1)
-        sv.rpc.Serve(sv.done, &sv.wg)
+        go sv.rpc.Serve(sv.done, &sv.wg)
     }
     //serveHttp(done)
 
@@ -71,12 +88,13 @@ func (sv *server) Serve() {
 
     sv.wg.Wait()
 
-    //finiCore()
+    if sv.shutdownFunc != nil {
+        sv.shutdownFunc()
+    }
     sv.removePid()
-
-    log.Println("server stop.")
 }
 
+//====================================
 func (sv *server) initArgs() {
     sv.argCluster = flag.Int("c", 0, "server clusterid")
     sv.argIndex = flag.Int("i", 0, "server instance index")
@@ -106,7 +124,7 @@ func (sv *server) listenInterupt() {
 }
 
 func (sv *server) shutdown() {
-    log.Printf("graceful shutdown...\n")
+    sv.logFunc("graceful shutdown...")
     close(sv.done)
 }
 
@@ -114,34 +132,59 @@ func (sv *server) writePid() {
     pName := sv.processName()
     pidFile := util.GenPidFilePath(pName)
     util.WritePidToFile(pidFile, os.Getpid())
-    log.Printf("writePid: pidfile %v, pid %v\n", pidFile, os.Getpid())
 }
 
 func (sv *server) removePid() {
     pName := sv.processName()
     pidFile := util.GenPidFilePath(pName)
     util.DeletePidFile(pidFile)
-    log.Printf("removePid: pidfile %v\n", pidFile)
 }
 
 func (sv *server) processName() string {
-    svrname := filepath.Base(os.Args[0])
-    pName := svrname
-    if *sv.argIndex > 0 {
-        pName = fmt.Sprintf("%v%v", pName, *sv.argIndex)
+    if sv.pName != "" {
+        return sv.pName
     }
-    return pName
+    sv.pName = filepath.Base(os.Args[0])
+    if *sv.argIndex > 0 {
+        sv.pName = fmt.Sprintf("%v%v", sv.pName, *sv.argIndex)
+    }
+    return sv.pName
+}
+
+func defaultLogFunc(format string, args ...interface{}) {
+    fmt.Printf(format, args...)
 }
 
 //=====================================================
+func Handlebase(onInit func(chan struct{}) error,
+                onShutdown func(),
+                l func(format string, args ...interface{})) error {
+    if onInit == nil {
+        return errors.New("nil onInit.")
+    }
+    if onShutdown == nil {
+        return errors.New("nil onShutdown.")
+    }
+    defaultSrv.initFunc = onInit
+    defaultSrv.shutdownFunc = onShutdown
+    if l != nil {
+        defaultSrv.logFunc = l
+    } else {
+        defaultSrv.logFunc = defaultLogFunc
+    }
+
+    return defaultSrv.init()
+}
 
 // 可选，注册rpc服务
 func HandleRpc(rpcName string, rpcWorker interface{}) error {
-    rpcW := prpc.New(defaultSrv.Addr(), rpcName, rpcWorker)
+    rpcW := prpc.New(defaultSrv.addr(), rpcName, rpcWorker)
     if rpcW == nil {
         return errors.New(prpc.ErrMsg())
     }
-    defaultSrv.SetRpc(rpcW)
+    rpcW.SetLog(defaultSrv.logFunc)
+    defaultSrv.setRpc(rpcW)
+
     return nil
 }
 
@@ -150,9 +193,13 @@ func HandleHttp() error {
     return nil
 }
 
+func ProcessName() string {
+    return defaultSrv.processName()
+}
+
 // server运行入口函数
 func Run() {
-    defaultSrv.Serve()
+    defaultSrv.serve()
 }
 
 

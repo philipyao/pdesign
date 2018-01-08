@@ -160,6 +160,7 @@ func Crit(format string, args ...interface{}) {
 
 func Flush() {
     close(logChan)
+    logChan = nil
     <-doneChan
     for _, adp := range adapters {
         adp.Close()
@@ -167,6 +168,8 @@ func Flush() {
 }
 
 func output(lvString string, format string, args ...interface{}) {
+    if logChan == nil { return }
+
     var text string
     tmNow := time.Now()
     if flag & LogDate != 0 {
@@ -204,6 +207,7 @@ func output(lvString string, format string, args ...interface{}) {
     logMsg.Buff = []byte(text)
     if len(logChan) == LogChanSize {
         fmt.Println("FULL!!!!!")
+        return
     }
     logChan <- logMsg
 }

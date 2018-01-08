@@ -6,12 +6,11 @@ import (
     "net"
     "sync"
     "net/rpc"
-
-    "base/log"
 )
 
 type Worker struct {
     listener    *net.TCPListener
+    logFunc     func(format string, args ...interface{})
 }
 
 var (
@@ -45,7 +44,14 @@ func New(addr, rpcName string, rpcWorker interface{}) *Worker {
 }
 
 func (w *Worker) Serve(done chan struct{}, wg *sync.WaitGroup) {
+    if w.logFunc != nil {
+        w.logFunc("[rpc] start listening on %v...", w.listener.Addr())
+    }
     w.doServe(w.listener, done, wg)
+}
+
+func (w *Worker) SetLog(l func(format string, args ...interface{})) {
+    w.logFunc = l
 }
 
 func (w *Worker) doServe(listener *net.TCPListener, done chan struct{}, wg *sync.WaitGroup) {
@@ -55,7 +61,9 @@ func (w *Worker) doServe(listener *net.TCPListener, done chan struct{}, wg *sync
     for {
         select {
         case <-done:
-            log.Info("stop rpc listening on %v...", listener.Addr())
+            if w.logFunc != nil {
+                w.logFunc("[rpc] stop listening on %v...", listener.Addr())
+            }
             return
         default:
         }
@@ -65,7 +73,9 @@ func (w *Worker) doServe(listener *net.TCPListener, done chan struct{}, wg *sync
             if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
                 continue
             }
-            log.Error("Error: accept rpc connection, %v", err.Error())
+            if w.logFunc != nil {
+                w.logFunc("[rpc] Error: accept connection, %v", err.Error())
+            }
         }
         go rpc.ServeConn(conn)
     }

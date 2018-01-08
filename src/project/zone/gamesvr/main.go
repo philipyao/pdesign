@@ -3,98 +3,35 @@ package main
 import (
     "fmt"
     "os"
-    "os/signal"
-    //"time"
-    "flag"
-    "sync"
     "path/filepath"
-    "syscall"
 
-    "base/util"
     "base/log"
+    "base/srv"
+
     "project/share"
 
 )
 
 var (
-    ptrIndex       *int
-    ptrPort        *int
-    ptrClusterID   *int
-    ptrIP             *string
-    ptrWanIP          *string
-
     serverType  int
-
-    done        chan struct{}
-    wg          *sync.WaitGroup
 )
 
-func init() {
+func onInit(done chan struct{}) error {
     serverType  = share.ServerTypeGamesvr
-
-    ptrIndex = flag.Int("i", 0, "server instance index")
-    ptrPort = flag.Int("p", 0, "server rpc port")
-    ptrClusterID = flag.Int("c", 0, "server clusterid")
-    ptrIP = flag.String("l", "0.0.0.0", "server local ip")
-    ptrWanIP = flag.String("w", "0.0.0.0", "server wan ip")
-
-    done = make(chan struct{})
-    wg = &sync.WaitGroup{}
-}
-
-func shutdown() {
-    log.Info("shutdown gamesvr")
-    close(done)
-
-    log.Flush()
-}
-
-func main() {
-    fmt.Println("\n")
-    var err error
-    readFlags()
     setLog()
-
-    handleSignal()
-
+    var err error
     err = InitConf()
     if err != nil {
         log.Error("InitConf: %v", err)
+        return err
     }
     err = LoadConf(done)
     if err != nil {
         log.Error("LoadConf: %v", err)
+        return err
     }
 
-    serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
-
-    writePid()
-
-    wg.Wait()
-
-    removePid()
-}
-
-func readFlags() {
-    flag.Parse()
-    if *ptrPort <= 0 {
-        fmt.Printf("invalid port: %v", *ptrPort)
-        panic("port")
-    }
-    if *ptrClusterID <= 0 {
-        fmt.Printf("invalid clusterid: %v", *ptrClusterID)
-        panic("clusterid")
-    }
-    fmt.Printf("port %v, clusterid %v\n", *ptrPort, *ptrClusterID)
-}
-
-func processName() string {
-    svrname := filepath.Base(os.Args[0])
-    pName := svrname
-    if *ptrIndex > 0 {
-        pName = fmt.Sprintf("%v%v", pName, *ptrIndex)
-    }
-    return pName
+    return nil
 }
 
 func setLog() {
@@ -103,7 +40,7 @@ func setLog() {
     if err != nil {
         panic(err)
     }
-    logName := filepath.Join(wd, "log", processName())
+    logName := filepath.Join(wd, "log", srv.ProcessName())
     config = fmt.Sprintf(config, logName)
     fmt.Printf("log config: %+v\n", config)
     err = log.AddAdapter(log.AdapterFile, config)
@@ -114,25 +51,27 @@ func setLog() {
     log.SetFlags(log.LogDate | log.LogTime | log.LogMicroTime | log.LogLongFile)
 }
 
-func writePid() {
-    pName := processName()
-    pidFile := util.GenPidFilePath(pName)
-    util.WritePidToFile(pidFile, os.Getpid())
-    log.Info("pidfile %v, pid %v", pidFile, os.Getpid())
+func onShutdown() {
+    log.Info("onShutdown gamesvr")
+    log.Flush()
 }
 
-func removePid() {
-    pName := processName()
-    pidFile := util.GenPidFilePath(pName)
-    util.DeletePidFile(pidFile)
+func main() {
+    var err error
+    err = srv.Handlebase(onInit, onShutdown, log.Info)
+    if err != nil {
+        log.Error("srv.Handlebase() err: %v", err.Error())
+        os.Exit(1)
+    }
+
+    name, worker := NewRpc()
+    err = srv.HandleRpc(name, worker)
+    if err != nil {
+        log.Error("srv.HandleRpc() err: %v", err.Error())
+        os.Exit(1)
+    }
+    srv.Run()
 }
 
-func handleSignal() {
-    sigs := make(chan os.Signal, 1)
-    signal.Notify(sigs, syscall.SIGTERM)
-    go func() {
-        log.Info("receive sig %v\n", <-sigs)
-        shutdown()
-    }()
-    return
-}
+
+
