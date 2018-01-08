@@ -5,7 +5,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/jinzhu/gorm/dialects/mysql"
+    _ "github.com/go-sql-driver/mysql"
 
     "github.com/go-xorm/xorm"
     "github.com/go-xorm/core"

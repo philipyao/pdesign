@@ -59,8 +59,10 @@ func handle_admin() {
         log.Debug("ADMIN LOGIN: [%v] [%v] [%v]", userName, passwd, veriCode)
         w.Header().Set("Content-Type", "application/json")
         var loginRsp AdminLoginRsp
-        loginRsp.Userinfo.Username = userName
-        loginRsp.Userinfo.Token = "HXS04KSSS"
+		loginRsp.Userinfo = &SUserinfo{
+        	Username: userName,
+        	Token: "HXS04KSSS",
+		}
         doWriteJson(w, loginRsp)
     })
 
@@ -150,7 +152,7 @@ func doWriteError(w http.ResponseWriter, errmsg string) {
 
 //=======================================================
 func startHttpServer() *http.Server {
-    srv := &http.Server{Addr: ":8999"}
+    srv := &http.Server{Addr: ":8080"}
 
     handle_admin()
 
