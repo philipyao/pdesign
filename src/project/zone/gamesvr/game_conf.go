@@ -50,7 +50,7 @@ func (gc *GameConf) SetLogLevel(val string) error {
     return nil
 }
 func (gc *GameConf) OnUpdateLogLevel(oldVal, val string) {
-    log.SetLevel(val)
+    //log.SetLevel(val)
 }
 
 func (gc *GameConf) EnableVip() int {

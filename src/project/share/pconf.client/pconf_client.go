@@ -109,9 +109,11 @@ func Load(done chan struct{}) error {
         fmt.Printf("watch entry <%v %v>ok\n", c.Namespace, c.Key)
     }
 
+    fmt.Println("begin handleWatch.")
     // listen updates
     go handleWatch(notify, done)
 
+    fmt.Println("Load ok.")
     return nil
 }
 

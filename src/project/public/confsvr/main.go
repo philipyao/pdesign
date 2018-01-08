@@ -1,130 +1,58 @@
 package main
 
 import (
-    "fmt"
     "os"
-    "os/signal"
-    "flag"
-    "sync"
-    "path/filepath"
-    "syscall"
 
     "base/log"
-    "base/util"
+    "base/srv"
+
     "project/share"
+
 )
 
 var (
-    ptrIndex       *int
-    ptrPort        *int
-    ptrClusterID   *int
-    ptrIP             *string
-    ptrWanIP          *string
-
     serverType  int
-
-    done        chan struct{}
-    wg          *sync.WaitGroup
 )
 
-func init() {
-    serverType  = share.ServerTypeConfsvr
+func onInit(done chan struct{}) error {
+    serverType  = share.ServerTypeRanksvr
+    share.SetLog(102400)
 
-    ptrIndex = flag.Int("i", 0, "server instance index")
-    ptrPort = flag.Int("p", 0, "server rpc port")
-    ptrClusterID = flag.Int("c", 0, "server clusterid")
-    ptrIP = flag.String("l", "0.0.0.0", "server local ip")
-    ptrWanIP = flag.String("w", "0.0.0.0", "server wan ip")
-
-    done = make(chan struct{})
-    wg = &sync.WaitGroup{}
-}
-
-func shutdown() {
-    log.Info("graceful shutdown server...")
-    close(done)
-}
-
-func main() {
-    readFlags()
-    setLog()
-
-    log.Info("====> confsvr start <====")
     err := initCore()
     if err != nil {
         log.Error(err.Error())
+        return err
     }
-    handleSignal()
 
-    serveRPC(done, *ptrPort, *ptrClusterID, *ptrIndex)
-    serveHttp(done)
-    writePid()
+    return nil
+}
 
-    wg.Wait()
-
+func onShutdown() {
+    log.Info("onShutdown ranksvr")
     finiCore()
-    removePid()
-
-    log.Info("server exit.")
     log.Flush()
 }
 
-func readFlags() {
-    flag.Parse()
-    if *ptrPort <= 0 {
-        panic("invalid port")
-    }
-    if *ptrClusterID <= 0 {
-        panic("invalid clusterid")
-    }
-}
-
-func processName() string {
-    svrname := filepath.Base(os.Args[0])
-    pName := svrname
-    if *ptrIndex > 0 {
-        pName = fmt.Sprintf("%v%v", pName, *ptrIndex)
-    }
-    return pName
-}
-
-func setLog() {
-    config := `{"filename": "%v", "maxsize": 102400, "maxbackup": 10}`
-    wd, err := os.Getwd()
+func main() {
+    var err error
+    err = srv.Handlebase(onInit, onShutdown, log.Info)
     if err != nil {
-        panic(err)
+        log.Error("srv.Handlebase() err: %v", err.Error())
+        os.Exit(1)
     }
-    logName := filepath.Join(wd, "log", processName())
-    config = fmt.Sprintf(config, logName)
-    fmt.Printf("log config: %+v\n", config)
-    err = log.AddAdapter(log.AdapterFile, config)
+
+    name, worker := NewRpc()
+    err = srv.HandleRpc(name, worker)
     if err != nil {
-        panic(err)
+        log.Error("srv.HandleRpc() err: %v", err.Error())
+        os.Exit(1)
     }
-    log.SetLevel(log.LevelStringDebug)
-    log.SetFlags(log.LogDate | log.LogTime | log.LogMicroTime | log.LogLongFile)
-}
 
-func writePid() {
-    pName := processName()
-    pidFile := util.GenPidFilePath(pName)
-    util.WritePidToFile(pidFile, os.Getpid())
-    log.Info("writePid: pidfile %v, pid %v", pidFile, os.Getpid())
-}
+    err = srv.HandleHttp(":8999", httpHandler)
+    if err != nil {
+        log.Error("srv.HandleHttp() err: %v", err.Error())
+        os.Exit(1)
+    }
 
-func removePid() {
-    pName := processName()
-    pidFile := util.GenPidFilePath(pName)
-    util.DeletePidFile(pidFile)
-    log.Info("removePid: pidfile %v", pidFile)
-}
-
-func handleSignal() {
-    sigs := make(chan os.Signal, 1)
-    signal.Notify(sigs, syscall.SIGTERM)
-    go func() {
-        log.Info("receive sig %v", <-sigs)
-        shutdown()
-    }()
-    return
+    srv.Run()
 }
