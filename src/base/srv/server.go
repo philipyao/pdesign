@@ -13,6 +13,7 @@ import (
 
     "base/util"
     "base/prpc"
+    "base/phttp"
 )
 
 type server struct {
@@ -33,6 +34,7 @@ type server struct {
     logFunc          func(format string, args ...interface{})
 
     rpc         *prpc.Worker
+    http        *phttp.Worker
 }
 
 var (
@@ -51,6 +53,10 @@ func (sv *server) addr() string {
 
 func (sv *server) setRpc(r *prpc.Worker) {
     sv.rpc = r
+}
+
+func (sv *server) setHttp(h *phttp.Worker) {
+    sv.http = h
 }
 
 func (sv *server) init() error {
@@ -78,6 +84,10 @@ func (sv *server) serve() {
     if sv.rpc != nil {
         sv.wg.Add(1)
         go sv.rpc.Serve(sv.done, &sv.wg)
+    }
+    if sv.http != nil {
+        sv.wg.Add(1)
+        go sv.http.Serve(sv.done, &sv.wg)
     }
     //serveHttp(done)
 
@@ -189,7 +199,14 @@ func HandleRpc(rpcName string, rpcWorker interface{}) error {
 }
 
 // 可选，注册http服务
-func HandleHttp() error {
+func HandleHttp(addr string) error {
+    httpW := phttp.New(addr)
+    if httpW == nil {
+        return errors.New("init http error")
+    }
+    httpW.SetLog(defaultSrv.logFunc)
+    defaultSrv.setHttp(httpW)
+
     return nil
 }
 

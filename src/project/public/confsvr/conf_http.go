@@ -41,7 +41,7 @@ type AdminAddRsp struct {
 }
 
 func handle_admin() {
-
+ 
     http.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) {
         err := r.ParseForm()
         if err != nil {
@@ -168,7 +168,7 @@ func serveHttp(done chan struct{}) {
     srv := startHttpServer()
     go func() {
         <- done
-        log.Info("stop http listening.")
+        log.Info("stop http listening on %v.", srv.Addr)
         srv.Shutdown(nil)
     }()
 
