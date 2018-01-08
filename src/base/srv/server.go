@@ -10,6 +10,7 @@ import (
     "sync"
     "path/filepath"
     "syscall"
+    "net/http"
 
     "base/util"
     "base/prpc"
@@ -199,10 +200,14 @@ func HandleRpc(rpcName string, rpcWorker interface{}) error {
 }
 
 // 可选，注册http服务
-func HandleHttp(addr string) error {
+func HandleHttp(addr string, hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
     httpW := phttp.New(addr)
     if httpW == nil {
         return errors.New("init http error")
+    }
+    err := httpW.SetHandler(hdl)
+    if err != nil {
+        return err
     }
     httpW.SetLog(defaultSrv.logFunc)
     defaultSrv.setHttp(httpW)

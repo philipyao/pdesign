@@ -40,9 +40,9 @@ type AdminAddRsp struct {
     Entry           *ConfEntry  `json:"entry"`
 }
 
-func handle_admin() {
- 
-    http.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) {
+var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
+
+    "/api/login": func(w http.ResponseWriter, r *http.Request) {
         err := r.ParseForm()
         if err != nil {
             log.Error("parse form error: %v", err)
@@ -62,9 +62,9 @@ func handle_admin() {
         loginRsp.Userinfo.Username = userName
         loginRsp.Userinfo.Token = "HXS04KSSS"
         doWriteJson(w, loginRsp)
-    })
+    },
 
-    http.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
+    "/api/list": func(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusBadRequest)
@@ -77,9 +77,9 @@ func handle_admin() {
             rsp.Entries = append(rsp.Entries, dumpConfEntry(r))
         }
         doWriteJson(w, rsp)
-    })
+    },
 
-    http.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
+    "/api/add": func(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusMethodNotAllowed)
@@ -110,15 +110,15 @@ func handle_admin() {
         var rsp AdminAddRsp
         rsp.Entry = dumpConfEntry(*c)
         doWriteJson(w, rsp)
-    })
+    },
 
-    http.HandleFunc("/api/update", func(w http.ResponseWriter, r *http.Request) {
+    "/api/update": func(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusBadRequest)
             return
         }
-    })
+    },
 }
 
 func dumpConfEntry(c Config) *ConfEntry {
@@ -146,31 +146,4 @@ func doWriteJson(w http.ResponseWriter, pkg interface{}) {
 
 func doWriteError(w http.ResponseWriter, errmsg string) {
     w.Write([]byte(errmsg))
-}
-
-//=======================================================
-func startHttpServer() *http.Server {
-    srv := &http.Server{Addr: ":8999"}
-
-    handle_admin()
-
-    go func() {
-        if err := srv.ListenAndServe(); err != nil {
-            fmt.Printf("Httpserver: ListenAndServe() error: %s\n", err)
-        }
-    }()
-
-    // returning reference so caller can call Shutdown()
-    return srv
-}
-
-func serveHttp(done chan struct{}) {
-    srv := startHttpServer()
-    go func() {
-        <- done
-        log.Info("stop http listening on %v.", srv.Addr)
-        srv.Shutdown(nil)
-    }()
-
-    return
 }

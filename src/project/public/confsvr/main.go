@@ -48,7 +48,7 @@ func main() {
         os.Exit(1)
     }
 
-    err = srv.HandleHttp(":8999")
+    err = srv.HandleHttp(":8999", httpHandler)
     if err != nil {
         log.Error("srv.HandleHttp() err: %v", err.Error())
         os.Exit(1)

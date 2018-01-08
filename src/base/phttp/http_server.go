@@ -3,6 +3,8 @@ package phttp
 import (
     "fmt"
     "sync"
+    "errors"
+
     "net/http"
 )
 
@@ -47,4 +49,14 @@ func (w *Worker) Serve(done chan struct{}, wg *sync.WaitGroup) {
 
 func (w *Worker) SetLog(l func(format string, args ...interface{})) {
     w.logFunc = l
+}
+
+func (w *Worker) SetHandler(hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
+    if len(hdl) == 0 {
+        return errors.New("inv http handler")
+    }
+    for path, fun := range hdl {
+        http.HandleFunc(path, fun)
+    }
+    return nil
 }
