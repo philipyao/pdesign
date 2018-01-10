@@ -40,6 +40,21 @@ type AdminAddRsp struct {
     Entry           *ConfEntry  `json:"entry"`
 }
 
+type AdminUpdateReq struct {
+	Updates			[]*UpdateEntry	`json:"updates"`
+}
+type UpdateEntry struct {
+    ID              uint        `json:"id"`
+    Value           string      `json:"value"`
+	Comment			string		`json:"comment"`
+	Author			string		`json:"author"`
+}
+
+type AdminUpdateRsp struct {
+    Entries      []*ConfEntry          `json:"entries"`
+	Errmsgs	     []string			   `json:"errmsgs"`
+}
+
 var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
     "/api/login": func(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +135,44 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             http.Error(w, "inv method", http.StatusBadRequest)
             return
         }
+        reqdata, err := ioutil.ReadAll(r.Body)
+        if err != nil {
+            log.Error("read body error %v", err)
+            return
+        }
+        if len(reqdata) == 0 {
+            log.Error("no reqdata for /api/update")
+            http.Error(w, "no reqdata for /api/update", http.StatusNoContent)
+            return
+        }
+        var req AdminUpdateReq
+        err = json.Unmarshal(reqdata, &req)
+        if err != nil {
+            log.Error(err.Error())
+            http.Error(w, "error parse json reqdata for /api/update", http.StatusBadRequest)
+            return
+        }
+		if len(req.Updates) == 0 {
+            http.Error(w, "no updates provided", http.StatusBadRequest)
+			return
+		}
+		log.Debug("updates: %+v", req.Updates)
+        var rsp AdminUpdateRsp
+		var errMsgs []string
+		for _, upd := range req.Updates {
+			err = updateConfig(upd.ID, upd.Value)
+			log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
+			if err != nil {
+				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())	
+				errMsgs = append(errMsgs, errMsg)
+				continue
+			}
+			c := configByID(upd.ID)
+			log.Debug("updated: %+v", c)
+			rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
+		}
+		rsp.Errmsgs = errMsgs
+        doWriteJson(w, rsp)
     },
 }
 

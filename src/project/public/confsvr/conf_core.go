@@ -88,19 +88,19 @@ func finiCore()  {
     finiZK()
 }
 
-func updateConfig(namespace, key, value string) error {
+func updateConfig(id uint, value string) error {
     var opConf *Config
     for _, conf := range confs {
-        if conf.Namespace == namespace && conf.Key == key {
+        if conf.ID == id {
             opConf = conf
             break
         }
     }
     if opConf == nil {
-        return fmt.Errorf("error update: config<%v %v> not found.", namespace, key)
+        return fmt.Errorf("error update: config<%v> not found", id)
     }
     if opConf.Value == value {
-        return fmt.Errorf("error update: config<%v %v> unchanged", namespace, key)
+        return fmt.Errorf("error update: config<%v> unchanged", id)
     }
     return updateByConfig(opConf, value)
 }
@@ -132,6 +132,15 @@ func addConfig(namespace, key, value string) (*Config, error) {
         namespaces = append(namespaces, namespace)
     }
     return &addConf, nil
+}
+
+func configByID(id uint) *Config {
+	for _, c := range confs {
+		if c.ID == id {
+			return c
+		}
+	}
+	return nil
 }
 
 func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]string, error) {
