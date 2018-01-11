@@ -1,8 +1,11 @@
+#忽略所有pyc
 script/common/hqpy/**/*.pyc
+
+#其他目录
 src/github.com/
-pkg/*
-pid/*
+pkg/
+pid/
 pdesign.iml
-log/*
-bin/*
+log/
+bin/
 .idea/
