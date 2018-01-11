@@ -1,0 +1,8 @@
+script/common/hqpy/**/*.pyc
+src/github.com/
+pkg/*
+pid/*
+pdesign.iml
+log/*
+bin/*
+.idea/
