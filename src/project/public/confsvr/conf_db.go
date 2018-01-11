@@ -27,7 +27,7 @@ type UserSimu struct {
     CreatedAt       time.Time   `xorm:"created"`
 }
 
-func initDB(obj *Config) error {
+func initDB(objs ...interface{}) error {
     var err error
     engine, err = xorm.NewEngine("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
     if err != nil {
@@ -42,11 +42,14 @@ func initDB(obj *Config) error {
         log.Error("engine.Ping() error %v", err)
         return err
     }
-    err = engine.Sync2(obj)
-    if err != nil {
-        log.Error("engine.Sync2() error %v", err)
-        return err
+    for _, obj := range objs {
+        err = engine.Sync2(obj)
+        if err != nil {
+            log.Error("engine.Sync2() error %v, obj %+v", err, obj)
+            return err
+        }
     }
+
     return nil
 }
 
@@ -101,6 +104,22 @@ func addDB(opConf *Config) error {
     }
     return nil
 }
+
+func dbAddOplog(oplog *ConfigOplog) error {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Insert(oplog)
+    if err != nil {
+        log.Error("engine.Insert() error %v, log %+v", err, oplog)
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
+}
+
 
 func SimuCreateMulti() error {
     const TBL_USER_NUM  = 2

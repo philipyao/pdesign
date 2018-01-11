@@ -9,7 +9,12 @@ import(
     "base/log"
 )
 
+type AdminError struct {
+    Errmsg      string      `json:"errmsg"`
+}
+
 type AdminLoginRsp struct {
+    AdminError
     Userinfo    *SUserinfo           `json:"userinfo"`
 }
 
@@ -19,6 +24,7 @@ type SUserinfo struct {
 }
 
 type AdminListRsp struct {
+    AdminError
     Entries      []*ConfEntry          `json:"entries"`
 }
 type ConfEntry struct {
@@ -37,22 +43,28 @@ type AdminAddReq struct {
     Value           string      `json:"value"`
 }
 type AdminAddRsp struct {
+    AdminError
     Entry           *ConfEntry  `json:"entry"`
 }
 
 type AdminUpdateReq struct {
 	Updates			[]*UpdateEntry	`json:"updates"`
+    Name            string          `json:"name"`
+    Comment         string          `json:"comment"`
+    Author          string          `json:"author"`
 }
 type UpdateEntry struct {
     ID              uint        `json:"id"`
     Value           string      `json:"value"`
+    Version         int         `json:"version"`    //保证客户端和服务器当前的version一致
 	Comment			string		`json:"comment"`
 	Author			string		`json:"author"`
 }
 
 type AdminUpdateRsp struct {
+    AdminError
     Entries      []*ConfEntry          `json:"entries"`
-	Errmsgs	     []string			   `json:"errmsgs"`
+	Failed	     []string			   `json:"errmsgs"`
 }
 
 var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
@@ -152,27 +164,49 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             http.Error(w, "error parse json reqdata for /api/update", http.StatusBadRequest)
             return
         }
+        var rsp AdminUpdateRsp
+        defer func() {
+            doWriteJson(w, rsp)
+        }()
+
+        //开始参数校验
 		if len(req.Updates) == 0 {
-            http.Error(w, "no updates provided", http.StatusBadRequest)
+            rsp.Errmsg = "no updates provided"
 			return
 		}
-		log.Debug("updates: %+v", req.Updates)
-        var rsp AdminUpdateRsp
-		var errMsgs []string
+        if req.Name == "" || req.Author == "" {
+            rsp.Errmsg = "no name or author provided, pls check"
+            return
+        }
+
+		var failed []string
+        var changes []*OpChange
 		for _, upd := range req.Updates {
+            c := configByID(upd.ID)
+
+            var change OpChange
+            change.Namespace = c.Namespace
+            change.Key = c.Key
+            change.OldValue = c.Value
+            change.Value = upd.Value
+
 			err = updateConfig(upd.ID, upd.Value)
 			log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
 			if err != nil {
-				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())	
-				errMsgs = append(errMsgs, errMsg)
+				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())
+                failed = append(failed, errMsg)
 				continue
 			}
-			c := configByID(upd.ID)
-			log.Debug("updated: %+v", c)
+
+			log.Debug("updated ok: %+v", c)
 			rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
+            changes = append(changes, &change)
 		}
-		rsp.Errmsgs = errMsgs
-        doWriteJson(w, rsp)
+        if len(changes) > 0 {
+            //TODO 失败的要不要记录？
+            addOplog(req.Name, req.Comment, req.Author, changes)
+        }
+		rsp.Failed = failed
     },
 }
 

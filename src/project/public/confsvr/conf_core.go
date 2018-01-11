@@ -13,6 +13,7 @@ const (
     ConfNamespaceOms    = "oms"
     ConfNamespaceCommon = "common"
     TableNameConf       = "tbl_conf"
+    TableNameConfOplog  = "tbl_conf_oplog"
 )
 //配置表
 type Config struct {
@@ -29,6 +30,25 @@ func (c Config) TableName() string {
     return TableNameConf
 }
 
+//操作日志
+type ConfigOplog struct {
+    OpID            uint        `xorm:"pk autoincr 'opid'"`
+    Name            string      `xorm:"varchar(64) notnull"`
+    Comment         string      `xorm:"varchar(128) notnull"`
+    Changes         []*OpChange `xorm:"text" notnull`
+    Author          string      `xorm:"varchar(32) notnull"`
+    OpTime          time.Time   `xorm:"DateTime notnull"`
+}
+type OpChange struct {
+    Namespace       string
+    Key             string
+    OldValue        string
+    Value           string
+}
+func (co ConfigOplog) TableName() string {
+    return TableNameConfOplog
+}
+
 var (
     namespaces []string
     confs []*Config
@@ -36,7 +56,7 @@ var (
 
 func initCore() error {
     var err error
-    err = initDB(new(Config))
+    err = initDB(new(Config), new(ConfigOplog))
     if err != nil {
         log.Error(err.Error())
         return err
@@ -103,6 +123,21 @@ func updateConfig(id uint, value string) error {
         return fmt.Errorf("error update: config<%v> unchanged", id)
     }
     return updateByConfig(opConf, value)
+}
+
+func addOplog(name, comment, author string, changes []*OpChange) {
+    oplog := &ConfigOplog{
+        Name: name,
+        Comment: comment,
+        Changes: changes,
+        Author: author,
+        OpTime: time.Now(),
+    }
+    err := dbAddOplog(oplog)
+    if err != nil {
+        log.Error("add oplog<%+v> error: %v", oplog, err)
+        return
+    }
 }
 
 func addConfig(namespace, key, value string) (*Config, error) {
