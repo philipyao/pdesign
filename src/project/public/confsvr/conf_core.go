@@ -35,7 +35,7 @@ type ConfigOplog struct {
     OpID            uint        `xorm:"pk autoincr 'opid'"`
     Name            string      `xorm:"varchar(64) notnull"`
     Comment         string      `xorm:"varchar(128) notnull"`
-    Changes         []*OpChange `xorm:"text" notnull`
+    Changes         []*OpChange `xorm:"text notnull"`
     Author          string      `xorm:"varchar(32) notnull"`
     OpTime          time.Time   `xorm:"DateTime notnull"`
 }

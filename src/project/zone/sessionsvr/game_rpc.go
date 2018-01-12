@@ -30,10 +30,9 @@ func serveRPC(port int, clusterID, index int) {
 
     l, e := net.Listen("tcp", fmt.Sprintf(":%v", port))
     if e != nil {
-        log.Fatal("Error: listen %d error:", port, e)
+        log.Fatalf("Error: listen %d error:%v", port, e)
     }
 
-    wg.Add(1)
     go func() {
         for {
             conn, err := l.Accept()
@@ -43,7 +42,6 @@ func serveRPC(port int, clusterID, index int) {
             }
             go rpc.ServeConn(conn)
         }
-        wg.Done()
     }()
 
     //注册rpc地址到zk TODO

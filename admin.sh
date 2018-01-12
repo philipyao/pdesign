@@ -12,6 +12,7 @@ target=""
 
 usage()
 {
+	echo  "vet  | v    源码静态检查"
     echo  "make | m    编译项目 调用make.py     make TARGET "
     echo  "start | s   启服务                    s  TARGET"
     echo  "stop  | k   停服务                    k  TARGET"
@@ -19,7 +20,7 @@ usage()
     echo  "restart | r  重启服务                 r  TARGET"
     echo  "restart9| r9 强制停服并重启           r9 TARGET"
 
-    echo  "TARGET： 默认 zone 可选[zone world all] 或者是多个svr名字 例如 gamesvr gatesvr gmsvr"
+    echo  "TARGET： 默认 zone 可选[zone world public all] 或者是多个svr名字 例如 gamesvr gatesvr gmsvr"
 }
 
 main()
@@ -28,6 +29,12 @@ main()
     shift 1
 
     case $var_user_opt in
+
+        vet | v )
+            cd $workdir
+			go tool vet src/base	
+			go tool vet src/project	
+            ;;
 
         make | m )
             cd $workdir

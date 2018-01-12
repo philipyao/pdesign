@@ -135,7 +135,7 @@ func (cp *confProcessor) BuildFunc(v reflect.Value) error {
             param := cp.FuncSet.Type().Out(0)
             if param.Kind() != reflect.Interface || param.Implements(errorInterface) == false {
                 return fmt.Errorf("error conf<key %v, name %v>: Set method return must be type error, kind %v",
-                    cp.Name, param.Kind())
+                    cp.NameKey, cp.Name, param.Kind())
             }
         }
     }
