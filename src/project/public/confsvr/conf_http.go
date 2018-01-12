@@ -54,11 +54,9 @@ type AdminUpdateReq struct {
     Author          string          `json:"author"`
 }
 type UpdateEntry struct {
-    ID              uint        `json:"id"`
+	ID              uint        `json:"id"`
     Value           string      `json:"value"`
     Version         int         `json:"version"`    //保证客户端和服务器当前的version一致
-	Comment			string		`json:"comment"`
-	Author			string		`json:"author"`
 }
 
 type AdminUpdateRsp struct {
@@ -164,6 +162,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             http.Error(w, "error parse json reqdata for /api/update", http.StatusBadRequest)
             return
         }
+		log.Debug("update req: %+v", req)
         var rsp AdminUpdateRsp
         defer func() {
             doWriteJson(w, rsp)
@@ -190,7 +189,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             change.OldValue = c.Value
             change.Value = upd.Value
 
-			err = updateConfig(upd.ID, upd.Value)
+			err = updateConfig(upd.ID, upd.Value, upd.Version)
 			log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
 			if err != nil {
 				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())

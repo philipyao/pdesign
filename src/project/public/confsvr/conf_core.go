@@ -108,7 +108,7 @@ func finiCore()  {
     finiZK()
 }
 
-func updateConfig(id uint, value string) error {
+func updateConfig(id uint, value string, version int) error {
     var opConf *Config
     for _, conf := range confs {
         if conf.ID == id {
@@ -119,6 +119,9 @@ func updateConfig(id uint, value string) error {
     if opConf == nil {
         return fmt.Errorf("error update: config<%v> not found", id)
     }
+	if opConf.Version != version {
+        return fmt.Errorf("error update: config<%v> version mismatch<%v %v>", id, opConf.Version, version)
+	}
     if opConf.Value == value {
         return fmt.Errorf("error update: config<%v> unchanged", id)
     }
