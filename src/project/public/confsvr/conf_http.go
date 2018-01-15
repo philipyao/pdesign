@@ -48,10 +48,16 @@ type AdminAddRsp struct {
 }
 
 type AdminUpdateReq struct {
+    Adds            []*AddEntry     `json:"adds"`
 	Updates			[]*UpdateEntry	`json:"updates"`
     Name            string          `json:"name"`
     Comment         string          `json:"comment"`
     Author          string          `json:"author"`
+}
+type AddEntry struct {
+    Namespace       string      `json:"namespace"`
+    Key             string      `json:"key"`
+    Value           string      `json:"value"`
 }
 type UpdateEntry struct {
 	ID              uint        `json:"id"`
@@ -106,40 +112,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         doWriteJson(w, rsp)
     },
 
-    "/api/add": func(w http.ResponseWriter, r *http.Request) {
-        if r.Method != "POST" {
-            log.Info("err handle http request, method %v", r.Method)
-            http.Error(w, "inv method", http.StatusMethodNotAllowed)
-            return
-        }
-        reqdata, err := ioutil.ReadAll(r.Body)
-        if err != nil {
-            log.Error("read body error %v", err)
-            return
-        }
-        if len(reqdata) == 0 {
-            log.Error("no reqdata for /api/add")
-            http.Error(w, "no reqdata for /api/add", http.StatusNoContent)
-            return
-        }
-        var req AdminAddReq
-        err = json.Unmarshal(reqdata, &req)
-        if err != nil {
-            log.Error(err.Error())
-            http.Error(w, "error parse json reqdata for /api/add", http.StatusBadRequest)
-            return
-        }
-        c, err := addConfig(req.Namespace, req.Key, req.Value)
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusBadRequest)
-            return
-        }
-        var rsp AdminAddRsp
-        rsp.Entry = dumpConfEntry(*c)
-        doWriteJson(w, rsp)
-    },
-
-    "/api/update": func(w http.ResponseWriter, r *http.Request) {
+    "/api/change": func(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusBadRequest)
@@ -165,12 +138,13 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 		log.Debug("update req: %+v", req)
         var rsp AdminUpdateRsp
         defer func() {
+            log.Debug("rsp %+v", rsp)
             doWriteJson(w, rsp)
         }()
 
         //开始参数校验
-		if len(req.Updates) == 0 {
-            rsp.Errmsg = "no updates provided"
+		if len(req.Updates) == 0 && len(req.Adds) == 0 {
+            rsp.Errmsg = "no adds or updates provided"
 			return
 		}
         if req.Name == "" || req.Author == "" {
@@ -201,6 +175,23 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 			rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
             changes = append(changes, &change)
 		}
+        for _, add := range req.Adds {
+            var change OpChange
+            change.Namespace = add.Namespace
+            change.Key = add.Key
+            change.OldValue = ""
+            change.Value = add.Value
+
+            c, err := addConfig(add.Namespace, add.Key, add.Value)
+            if err != nil {
+                errMsg := fmt.Sprintf("config<%+v> add error: %v; ", add, err.Error())
+                failed = append(failed, errMsg)
+                continue
+            }
+            log.Debug("added ok: %+v", c)
+            rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
+            changes = append(changes, &change)
+        }
         if len(changes) > 0 {
             //TODO 失败的要不要记录？
             addOplog(req.Name, req.Comment, req.Author, changes)
