@@ -9,6 +9,11 @@ import(
     "base/log"
 )
 
+const (
+    CookieName      = "sessid"
+    KeyUserName     = "username"
+)
+
 type AdminError struct {
     Errmsg      string      `json:"errmsg"`
 }
@@ -71,10 +76,20 @@ type AdminUpdateRsp struct {
 	Failed	     []string			   `json:"errmsgs"`
 }
 
+var (
+    smgr *SessionMgr = NewManager(3600)
+)
+
 var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
     "/api/login": func(w http.ResponseWriter, r *http.Request) {
-        err := r.ParseForm()
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+
+        err = r.ParseForm()
         if err != nil {
             log.Error("parse form error: %v", err)
             http.Error(w, err.Error(), http.StatusBadRequest)
@@ -88,16 +103,29 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
         userName, passwd, veriCode := r.FormValue("username"), r.FormValue("password"), r.FormValue("code")
         log.Debug("ADMIN LOGIN: [%v] [%v] [%v]", userName, passwd, veriCode)
+        sess.Set(KeyUserName, userName)
+
         w.Header().Set("Content-Type", "application/json")
         var loginRsp AdminLoginRsp
 		loginRsp.Userinfo = &SUserinfo{
         	Username: userName,
-        	Token: "HXS04KSSS",
 		}
         doWriteJson(w, loginRsp)
     },
 
     "/api/list": func(w http.ResponseWriter, r *http.Request) {
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+        username := sess.Get(KeyUserName)
+        if username == nil {
+            //需要重新登录
+            doWriteError(w, "need login")
+            return
+        }
+
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusBadRequest)
@@ -113,6 +141,18 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     },
 
     "/api/change": func(w http.ResponseWriter, r *http.Request) {
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+        username := sess.Get(KeyUserName)
+        if username == nil {
+            //需要重新登录
+            doWriteError(w, "need login")
+            return
+        }
+
         if r.Method != "POST" {
             log.Info("err handle http request, method %v", r.Method)
             http.Error(w, "inv method", http.StatusBadRequest)
@@ -224,5 +264,7 @@ func doWriteJson(w http.ResponseWriter, pkg interface{}) {
 }
 
 func doWriteError(w http.ResponseWriter, errmsg string) {
-    w.Write([]byte(errmsg))
+    var rsp AdminError
+    rsp.Errmsg = errmsg
+    doWriteJson(w, &rsp)
 }
