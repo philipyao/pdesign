@@ -5,7 +5,7 @@ import (
     "base/zkcli"
     "base/log"
 
-    "project/share"
+    "project/share/commdef"
 )
 
 var (
@@ -13,33 +13,50 @@ var (
 )
 
 func initZK(zkaddr string) error {
-    log.Info("initZK: %v", zkaddr)
+    if conn != nil {
+        panic("duplicated initZK")
+    }
     c, err := zkcli.Connect(zkaddr)
     if err != nil {
         log.Error("initZK err: %v", err.Error())
         return err
     }
     conn = c
-    return conn.Write(share.ZKPrefixConfig, []byte{})
+    log.Info("open connection to ZK: %v", zkaddr)
+    return conn.Write(commdef.ZKPrefixConfig, []byte{})
 }
 
 func finiZK() {
     if conn != nil {
         log.Info("close connection to ZK.")
         conn.Close()
+        conn = nil
     }
 }
 func attachNamespaceWithZK(namespace string) error {
-    configPath := strings.Join([]string{share.ZKPrefixConfig, namespace}, "/")
+    configPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace}, "/")
     return conn.Write(configPath, []byte{})
 }
 
 func attachWithZK(namespace, key string) error {
-    configPath := strings.Join([]string{share.ZKPrefixConfig, namespace, key}, "/")
+    configPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace}, "/")
+    exist, err := conn.Exists(configPath)
+    if err != nil {
+        return err
+    }
+    if !exist {
+        err = conn.Write(configPath, []byte{})
+        if err != nil {
+            return err
+        }
+    }
+    log.Debug("attach: %v %v", namespace, key)
+    configPath = strings.Join([]string{commdef.ZKPrefixConfig, namespace, key}, "/")
     return conn.Write(configPath, []byte{})
 }
 
+//pub变更消息给ZK
 func notifyWithZK(namespace, key string) error {
-    configPath := strings.Join([]string{share.ZKPrefixConfig, namespace, key}, "/")
+    configPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace, key}, "/")
     return conn.Write(configPath, []byte{})
 }

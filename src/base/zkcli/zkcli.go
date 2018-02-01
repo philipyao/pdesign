@@ -34,6 +34,14 @@ func (c *Conn) Close() {
     c.conn.Close()
 }
 
+func (c *Conn) Exists(path string) (bool, error) {
+    exist, _, err := c.Conn().Exists(path)
+    if err != nil {
+        return false, err
+    }
+    return exist, nil
+}
+
 func (c *Conn) Write(path string, data []byte) error {
     exist, stat, err := c.conn.Exists(path)
     if err != nil {

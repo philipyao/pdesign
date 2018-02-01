@@ -34,6 +34,9 @@ func initDB(objs ...interface{}) error {
         log.Error("xorm.NewEngine error %v", err)
         return err
     }
+
+    log.Info("open connection to db engine.")
+
     engine.ShowSQL(true)
     engine.Logger().SetLevel(core.LOG_DEBUG)
     engine.SetMapper(core.GonicMapper{})

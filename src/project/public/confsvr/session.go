@@ -106,7 +106,7 @@ func (sm *SessionMgr) writeSid(w http.ResponseWriter, sid string) {
         Name: CookieName,
         Value: url.QueryEscape(sid),
         Path: "/",
-        HttpOnly: true,
+        HttpOnly: false,    //客户端需要通过document.cookie这种非http方式来获取
     }
     http.SetCookie(w, cookie)
 }

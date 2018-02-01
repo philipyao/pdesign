@@ -9,7 +9,8 @@ import (
     "base/srv"
 )
 
-func SetLog(maxSize int) {
+//服务器通用的设置log接口
+func SetServerLog(maxSize int) {
     config := `{"filename": "%v", "maxsize": %v, "maxbackup": 10}`
     wd, err := os.Getwd()
     if err != nil {
