@@ -23,7 +23,6 @@ func onInit(done chan struct{}) error {
 
     err := initCore()
     if err != nil {
-        log.Error(err.Error())
         return err
     }
 
@@ -38,19 +37,21 @@ func onShutdown() {
 
 func main() {
     var err error
+
+    //服务器基础：启动，关闭
     err = srv.Handlebase(onInit, onShutdown, log.Info)
     if err != nil {
-        log.Error("srv.Handlebase() err: %v", err.Error())
-        os.Exit(1)
+        log.Fatal("srv.Handlebase() err: %v", err)
     }
 
+    //进程间通信：RPC服务
     name, worker := NewRpc()
     err = srv.HandleRpc(name, worker)
     if err != nil {
-        log.Error("srv.HandleRpc() err: %v", err.Error())
-        os.Exit(1)
+        log.Fatal("srv.HandleRpc() err: %v", err)
     }
 
+    //对外HTTP服务
     err = srv.HandleHttp(":8999", httpHandler)
     if err != nil {
         log.Error("srv.HandleHttp() err: %v", err.Error())

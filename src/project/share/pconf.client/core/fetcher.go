@@ -1,8 +1,10 @@
 package core
 
 import (
+    "net"
 	"net/rpc"
 	"fmt"
+    "time"
 	"errors"
 	"project/share/proto"
 )
@@ -13,11 +15,11 @@ var (
 
 //TODO confsvr的rpc地址
 func InitFetcher(svrAddr string) error {
-	client, err := rpc.Dial("tcp", svrAddr)
-	if err != nil {
-		return fmt.Errorf("err dialing: confsvr<%v>, err %v\n", svrAddr, err)
-	}
-	rpcClient = client
+    conn, err := net.DialTimeout("tcp", svrAddr, time.Second)
+    if err != nil {
+        return err
+    }
+    rpcClient = rpc.NewClient(conn)
 	return nil
 }
 

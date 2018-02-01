@@ -5,7 +5,7 @@ import (
     "strings"
 
     "base/zkcli"
-    "project/share"
+    "project/share/commdef"
 )
 var (
     conn    *zkcli.Conn
@@ -24,7 +24,7 @@ func WatchEntryUpdate(namespace, key string, notify chan string, done chan struc
     if conn == nil {
         return fmt.Errorf("nil zk conn")
     }
-    entryPath := strings.Join([]string{share.ZKPrefixConfig, namespace, key}, "/")
+    entryPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace, key}, "/")
     return conn.Watch(entryPath, func(p string, d []byte, e error){
         fmt.Printf("fire watch for entry<%v %v>, e %v\n", namespace, key, e)
         if e != nil {

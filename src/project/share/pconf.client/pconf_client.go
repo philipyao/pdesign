@@ -5,7 +5,7 @@ import (
     "reflect"
     "errors"
 
-    "project/share"
+    "project/share/commdef"
     "project/share/pconf.client/core"
 )
 
@@ -21,7 +21,7 @@ var (
 func RegisterConfDef(namespace string, confDef interface{}) error {
     var err error
 
-    confAddr := "10.1.164.45:12001"
+    confAddr := "10.1.164.99:12001"
     err = core.InitFetcher(confAddr)
     if err != nil {
         return err
@@ -77,10 +77,10 @@ func Load(done chan struct{}) error {
     if err != nil {
         return err
     }
-    //TODO get zkaddr
+    // get zkaddr
     var zkaddr string
     for _, c := range confs {
-        if c.Key == share.ConfigKeyZKAddr {
+        if c.Key == commdef.ConfigKeyZKAddr {
             zkaddr = c.Value
         }
     }
@@ -95,7 +95,7 @@ func Load(done chan struct{}) error {
     notify := make(chan string)
     for i, c := range confs {
         fmt.Printf("fetched confs[%v]: %+v\n", i, c)
-        if c.Key == share.ConfigKeyZKAddr {
+        if c.Key == commdef.ConfigKeyZKAddr {
             continue
         }
         err = core.InitEntry(c.Key, c.Value)

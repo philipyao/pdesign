@@ -31,7 +31,6 @@ func initDB(objs ...interface{}) error {
     var err error
     engine, err = xorm.NewEngine("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
     if err != nil {
-        log.Error("xorm.NewEngine error %v", err)
         return err
     }
 
@@ -42,17 +41,16 @@ func initDB(objs ...interface{}) error {
     engine.SetMapper(core.GonicMapper{})
     err = engine.Ping()
     if err != nil {
-        log.Error("engine.Ping() error %v", err)
         return err
     }
     for _, obj := range objs {
         err = engine.Sync2(obj)
         if err != nil {
-            log.Error("engine.Sync2() error %v, obj %+v", err, obj)
             return err
         }
     }
 
+    log.Info("sync db tables ok.")
     return nil
 }
 

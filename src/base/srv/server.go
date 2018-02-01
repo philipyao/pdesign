@@ -5,7 +5,6 @@ import (
     "os"
     "os/signal"
     "flag"
-    "log"
     "errors"
     "sync"
     "path/filepath"
@@ -32,7 +31,7 @@ type server struct {
 
     initFunc        func(chan struct{}) error
     shutdownFunc    func()
-    logFunc          func(format string, args ...interface{})
+    logFunc         func(format string, args ...interface{})
 
     rpc         *prpc.Worker
     http        *phttp.Worker
@@ -41,10 +40,6 @@ type server struct {
 var (
     ptrWanIP          *string
 )
-
-func init() {
-    log.SetFlags(log.LstdFlags)
-}
 
 var defaultSrv  = &server{done: make(chan struct{})}
 

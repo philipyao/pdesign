@@ -6,7 +6,7 @@ import (
     "errors"
 
     "base/log"
-    "project/share"
+    "project/share/commdef"
 )
 
 var (
@@ -22,21 +22,19 @@ func initCore() error {
     )
     err = initDB(&dbConfig, &dbOpLog)
     if err != nil {
-        log.Error(err.Error())
         return err
     }
 
     log.Debug("loadConfigFromDB...")
     confs, namespaces, err = loadConfigFromDB()
     if err != nil {
-        log.Error(err.Error())
         return err
     }
     log.Debug("loadConfigFromDB ok, count: %v", len(confs))
 
     var zkaddr string
     for _, c := range confs {
-        if c.Namespace == ConfNamespaceCommon && c.Key == share.ConfigKeyZKAddr {
+        if c.Namespace == ConfNamespaceCommon && c.Key == commdef.ConfigKeyZKAddr {
             zkaddr = c.Value
             break
         }
@@ -53,7 +51,7 @@ func initCore() error {
     for _, c := range confs {
         err = attachWithZK(c.Namespace, c.Key)
         if err != nil {
-            log.Error(err.Error())
+            return err
         }
     }
 

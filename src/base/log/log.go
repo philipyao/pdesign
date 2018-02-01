@@ -1,9 +1,9 @@
 package log
 
 import (
+    "os"
     "fmt"
     "time"
-    //"log"
     "runtime"
     "strconv"
     "path/filepath"
@@ -12,17 +12,18 @@ import (
 )
 
 const (
-    LevelDebug          = iota
+    _ int              = iota
+    LevelDebug
     LevelInfo
     LevelWarn
     LevelError
-    LevelCrit
+    LevelFatal
 
     LevelStringDebug    = "DEBUG"
     LevelStringInfo     = "INFO"
     LevelStringWarn     = "WARN"
     LevelStringError    = "ERROR"
-    LevelStringCrit     = "CRIT"
+    LevelStringFatal    = "FATAL"
 )
 
 
@@ -66,7 +67,7 @@ func init() {
     lvs[LevelStringInfo]    = LevelInfo
     lvs[LevelStringWarn]    = LevelWarn
     lvs[LevelStringError]   = LevelError
-    lvs[LevelStringCrit]    = LevelCrit
+    lvs[LevelStringFatal]   = LevelFatal
     //默认输出INFO
     level = LevelStringInfo
     flag = LogStd
@@ -113,6 +114,11 @@ func RemoveAdapter(name string) error {
     return nil
 }
 
+func CheckLevel(lv string) bool {
+    _, ok := lvs[lv]
+    return ok
+}
+
 func SetLevel(lv string) error {
     if _, ok := lvs[lv]; !ok {
         return fmt.Errorf("invalid log level %v", lv)
@@ -151,15 +157,21 @@ func Error(format string, args ...interface{}) {
     }
     output(LevelStringError, format, args...)
 }
-func Crit(format string, args ...interface{}) {
-    if lvs[level] > LevelCrit {
+func Fatal(format string, args ...interface{}) {
+    if lvs[level] > LevelFatal {
         return
     }
-    output(LevelStringCrit, format, args...)
+    output(LevelStringFatal, format, args...)
+
+    //准备退出，退出前将所有log flush掉
+    Flush()
+    os.Exit(1)
 }
 
 func Flush() {
+    //结束log监听写，将剩余log写入后退出for循环
     close(logChan)
+
     logChan = nil
     <-doneChan
     for _, adp := range adapters {
@@ -213,11 +225,14 @@ func output(lvString string, format string, args ...interface{}) {
 }
 
 func handleWriteLog() {
+    //要结束该for range循环，只需要close(logChan)
     for logMsg := range logChan {
         for _, adp  := range adapters {
             adp.Write(logMsg.Buff)
         }
         logMessagePut(logMsg)
     }
+
+    //通知flush写完
     doneChan <- struct{}{}
 }

@@ -1,15 +1,11 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "path/filepath"
-
     "base/log"
     "base/srv"
 
     "project/share"
-
+    "project/share/commdef"
 )
 
 var (
@@ -17,38 +13,20 @@ var (
 )
 
 func onInit(done chan struct{}) error {
-    serverType  = share.ServerTypeGamesvr
-    setLog()
+    serverType  = commdef.ServerTypeGamesvr
+
+    //通用添加log支持
+    logSize := 102400
+    share.SetServerLog(logSize)
+
     var err error
-    err = InitConf()
-    if err != nil {
-        log.Error("InitConf: %v", err)
-        return err
-    }
+    //加载服务器配置
     err = LoadConf(done)
     if err != nil {
-        log.Error("LoadConf: %v", err)
         return err
     }
 
     return nil
-}
-
-func setLog() {
-    config := `{"filename": "%v", "maxsize": 102400, "maxbackup": 10}`
-    wd, err := os.Getwd()
-    if err != nil {
-        panic(err)
-    }
-    logName := filepath.Join(wd, "log", srv.ProcessName())
-    config = fmt.Sprintf(config, logName)
-    fmt.Printf("log config: %+v\n", config)
-    err = log.AddAdapter(log.AdapterFile, config)
-    if err != nil {
-        panic(err)
-    }
-    log.SetLevel(log.LevelStringDebug)
-    log.SetFlags(log.LogDate | log.LogTime | log.LogMicroTime | log.LogLongFile)
 }
 
 func onShutdown() {
@@ -58,18 +36,20 @@ func onShutdown() {
 
 func main() {
     var err error
+
+    //服务器基础：启动，关闭
     err = srv.Handlebase(onInit, onShutdown, log.Info)
     if err != nil {
-        log.Error("srv.Handlebase() err: %v", err.Error())
-        os.Exit(1)
+        log.Fatal("srv.Handlebase() err: %v", err)
     }
 
+    //进程间通信：RPC服务
     name, worker := NewRpc()
     err = srv.HandleRpc(name, worker)
     if err != nil {
-        log.Error("srv.HandleRpc() err: %v", err.Error())
-        os.Exit(1)
+        log.Fatal("srv.HandleRpc() err: %v", err)
     }
+
     srv.Run()
 }
 
