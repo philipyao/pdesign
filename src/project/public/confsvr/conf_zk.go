@@ -65,6 +65,7 @@ func attachWithZK(namespace, key string) error {
 
 //pub变更消息给ZK
 func notifyWithZK(namespace, key string) error {
+    log.Info("notifyWithZK: %v %v", namespace, key)
     configPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace, key}, "/")
     return conn.Write(configPath, []byte{})
 }

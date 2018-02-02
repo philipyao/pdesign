@@ -30,7 +30,6 @@ func FetchConfFromServer(namespace string, keys []string) ([]*proto.ConfigEntry,
 	if namespace == "" || len(keys) == 0 {
 		panic("inv input for fetch.")
 	}
-	fmt.Printf("FetchConfFromServer...\n")
 	args := &proto.FetchConfigArg{
 		Namespace: namespace,
 		Keys: keys,

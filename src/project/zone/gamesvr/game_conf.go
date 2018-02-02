@@ -67,6 +67,7 @@ func LoadConf(done chan struct{}) error {
     if err != nil {
         return fmt.Errorf("RegisterConfDef: %v", err)
     }
+    pconfclient.SetLogger(log.Info)
     err = pconfclient.Load(done)
     if err != nil {
         return fmt.Errorf("Load: %v", err)

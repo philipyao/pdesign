@@ -19,12 +19,19 @@ var (
 
 var (
     processors  map[string]*confProcessor
-
     errorInterface = reflect.TypeOf((*error)(nil)).Elem()
+
+    logger  func(string, ...interface{})
 )
 
 func init() {
     processors = make(map[string]*confProcessor)
+}
+
+func SetLogger(l func(string, ...interface{})) {
+    logger = func(f string, a ...interface{}) {
+        l("[pconfclient] " + f, a)
+    }
 }
 
 func RegisterEntry(tag string, goName string, v reflect.Value) error {
@@ -54,11 +61,10 @@ func EntryKeys() []string {
 func InitEntry(key, val string) error {
     processor, ok := processors[key]
     if !ok {
-        fmt.Printf("InitEntry: key<%v> not found\n", key)
         return ResUpdateIgnoreKey
     }
 
-    //call set
+    //call setter
     in := []reflect.Value{reflect.ValueOf(val)}
     returns := processor.FuncSet.Call(in)
     if len(returns) != 1 {
@@ -68,6 +74,7 @@ func InitEntry(key, val string) error {
     if err != nil {
         return fmt.Errorf("set conf failed: key %v, val %v, err %v", key, val, err)
     }
+    logger("key %v init local ok.", key)
     return nil
 }
 
@@ -76,7 +83,7 @@ func UpdateEntry(key, oldVal, val string) error {
     processor, ok := processors[key]
     if !ok {return ResUpdateIgnoreKey}
 
-    //call set
+    //call setter
     in := []reflect.Value{reflect.ValueOf(val)}
     returns := processor.FuncSet.Call(in)
     if len(returns) != 1 {
@@ -86,10 +93,13 @@ func UpdateEntry(key, oldVal, val string) error {
     if err != nil {
         return fmt.Errorf("set conf failed: key %v, val %v, err %v", key, val, err)
     }
+    logger("key %v update set local value %v ok.", key, val)
 
-    //call on update
+    //call on updater
     in = []reflect.Value{reflect.ValueOf(oldVal), reflect.ValueOf(val)}
     processor.FuncOnUpdate.Call(in)
+
+    logger("key %v on-update local ok.", key)
     return nil
 }
 

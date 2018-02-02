@@ -16,7 +16,15 @@ const (
 
 var (
     currNamespace   string
+    logFunc         func(string, ...interface{})
 )
+
+func init() {
+    defaultLogger := func(format string, args ...interface{}) {
+        fmt.Printf(format, args)
+    }
+    SetLogger(defaultLogger)
+}
 
 func RegisterConfDef(namespace string, confDef interface{}) error {
     var err error
@@ -59,7 +67,6 @@ func RegisterConfDef(namespace string, confDef interface{}) error {
         if err != nil {
             return err
         }
-        fmt.Printf("register field %v %v ok\n", tag, goName)
     }
     if tagFound == false {
         return fmt.Errorf("no 'pconf' tag found in provided confdef")
@@ -67,16 +74,24 @@ func RegisterConfDef(namespace string, confDef interface{}) error {
     return nil
 }
 
+func SetLogger(l func(string, ...interface{})) {
+    logFunc = func(format string, args ...interface{}) {
+        l("[pconfclient] " + format, args)
+    }
+    core.SetLogger(l)
+}
+
 func Load(done chan struct{}) error {
     //开始从远程服务器加载需要的配置
     keys := core.EntryKeys()
+    logFunc("start loading confs: count %v", len(keys))
     keys = append(keys, NameKeyZKAddr)
-    fmt.Printf("load: keys %+v\n", keys)
-
     confs, err := core.FetchConfFromServer(currNamespace, keys)
     if err != nil {
         return err
     }
+    logFunc("fetch confs from confsvr ok.")
+
     // get zkaddr
     var zkaddr string
     for _, c := range confs {
@@ -93,8 +108,7 @@ func Load(done chan struct{}) error {
     }
 
     notify := make(chan string)
-    for i, c := range confs {
-        fmt.Printf("fetched confs[%v]: %+v\n", i, c)
+    for _, c := range confs {
         if c.Key == commdef.ConfigKeyZKAddr {
             continue
         }
@@ -106,14 +120,13 @@ func Load(done chan struct{}) error {
         if err != nil {
             return err
         }
-        fmt.Printf("watch entry <%v %v>ok\n", c.Namespace, c.Key)
+        logFunc("watch entry <%v %v>.", c.Namespace, c.Key)
     }
 
-    fmt.Println("begin handleWatch.")
     // listen updates
     go handleWatch(notify, done)
 
-    fmt.Println("Load ok.")
+    logFunc("finished loading confs.")
     return nil
 }
 
@@ -123,7 +136,6 @@ func handleWatch(notify chan string, done chan struct{}) {
         case <- done:
             return
         case updateKey := <- notify:
-            fmt.Printf("update key %v\n", updateKey)
             handleUpdate(updateKey)
         }
     }
@@ -132,18 +144,18 @@ func handleWatch(notify chan string, done chan struct{}) {
 func handleUpdate(key string) {
     confs, err := core.FetchConfFromServer(currNamespace, []string{key})
     if err != nil {
-        fmt.Println(err)
+        logFunc("FetchConfFromServer: %v", err)
         return
     }
     if len(confs) != 1 {
-        fmt.Println("inv conf counts")
+        logFunc("inv conf counts")
         return
     }
     if confs[0].Key != key {
-        fmt.Printf("mismatch key %v %+v\n", key, confs[0])
+        logFunc("mismatch key %v %+v", key, confs[0])
         return
     }
-    fmt.Printf("update: %+v\n", confs[0])
+    logFunc("handleUpdate: key %v", key)
     //TODO
     core.UpdateEntry(key, "", confs[0].Value)
 }
