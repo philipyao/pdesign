@@ -42,6 +42,9 @@ var (
 )
 
 var defaultSrv  = &server{done: make(chan struct{})}
+func init() {
+    defaultSrv.prepare()
+}
 
 func (sv *server) addr() string {
     return fmt.Sprintf("%v:%v", *sv.argIP, *sv.argPort)
@@ -55,14 +58,16 @@ func (sv *server) setHttp(h *phttp.Worker) {
     sv.http = h
 }
 
+func (sv *server) prepare() {
+    sv.readArgs()
+}
+
 func (sv *server) init() error {
     sv.logFunc("server start...")
 
     if sv.bInited {
         panic("already inited.")
     }
-    sv.initArgs()
-    sv.readArgs()
 
     err := sv.initFunc(sv.done)
     if err != nil {
@@ -101,16 +106,14 @@ func (sv *server) serve() {
 }
 
 //====================================
-func (sv *server) initArgs() {
+
+func (sv *server) readArgs() {
     sv.argCluster = flag.Int("c", 0, "server clusterid")
     sv.argIndex = flag.Int("i", 0, "server instance index")
     sv.argIP = flag.String("l", "0.0.0.0", "server local ip")
     sv.argPort = flag.Int("p", 0, "server rpc port")
-
     ptrWanIP = flag.String("w", "0.0.0.0", "server wan ip")
-}
 
-func (sv *server) readArgs() {
     flag.Parse()
     if *sv.argPort <= 0 {
         panic("no server port specified!")

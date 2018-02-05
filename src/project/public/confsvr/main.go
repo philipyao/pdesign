@@ -17,10 +17,6 @@ var (
 func onInit(done chan struct{}) error {
     serverType  = commdef.ServerTypeConfsvr
 
-    //通用添加log支持
-    logSize := 102400
-    share.SetServerLog(logSize)
-
     err := initCore()
     if err != nil {
         return err
@@ -30,18 +26,28 @@ func onInit(done chan struct{}) error {
 }
 
 func onShutdown() {
-    log.Info("onShutdown confsvr.")
     finiCore()
+
+    log.Info("confsvr onShutdown ok.")
     log.Flush()
+}
+
+func init () {
+    //初始化业务日志
+    logSize := 102400
+    share.InitBizLog(logSize)
+
+    //自定义srv框架log
+    share.SetSrvLogger()
 }
 
 func main() {
     var err error
 
     //服务器基础：启动，关闭
-    err = srv.Handlebase(onInit, onShutdown)
+    err = srv.HandleBase(onInit, onShutdown)
     if err != nil {
-        log.Fatal("srv.Handlebase() err: %v", err)
+        log.Fatal("srv.HandleBase() err: %v", err)
     }
 
     //进程间通信：RPC服务

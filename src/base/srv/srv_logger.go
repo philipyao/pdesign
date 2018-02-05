@@ -6,7 +6,7 @@ import (
 )
 
 const (
-    LogPrefix           = "[server]"
+    LogPrefix           = "[srv]"
     LogCalldepth        = 3
 )
 
@@ -21,7 +21,6 @@ func defaultLogFunc() func(format string, args ...interface{}) {
 //自定义log输出
 func customLogFunc(l func(int, string, ...interface{})) func(format string, args ...interface{}) {
     return func(format string, args ...interface{}) {
-        fmt.Printf("custom log: %v\n", format)
         l(LogCalldepth, LogPrefix + format, args...)
     }
 }

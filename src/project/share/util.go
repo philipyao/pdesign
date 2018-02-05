@@ -9,8 +9,9 @@ import (
     "base/srv"
 )
 
-//服务器通用的设置log接口
-func SetServerLog(maxSize int) {
+//初始化业务日志
+func InitBizLog(maxSize int) {
+    //@1 业务log初始化
     config := `{"filename": "%v", "maxsize": %v, "maxbackup": 10}`
     wd, err := os.Getwd()
     if err != nil {
@@ -25,4 +26,9 @@ func SetServerLog(maxSize int) {
     }
     log.SetLevel(log.LevelStringDebug)
     log.SetFlags(log.LogDate | log.LogTime | log.LogMicroTime | log.LogLongFile)
+}
+
+//设置srv框架自定义日志
+func SetSrvLogger() {
+    srv.SetLogger(log.Output)
 }
