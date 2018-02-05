@@ -90,8 +90,6 @@ func (sv *server) serve() {
         sv.wg.Add(1)
         go sv.http.Serve(sv.done, &sv.wg)
     }
-    //serveHttp(done)
-
     sv.writePid()
 
     sv.wg.Add(1)
@@ -99,9 +97,7 @@ func (sv *server) serve() {
 
     sv.wg.Wait()
 
-    if sv.shutdownFunc != nil {
-        sv.shutdownFunc()
-    }
+    sv.shutdownFunc()
     sv.removePid()
 }
 
