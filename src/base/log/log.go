@@ -40,6 +40,7 @@ const (
 
 const (
     LogChanSize           = 1024000
+    DefaultCalldepth      = 2
 )
 
 const (
@@ -62,12 +63,14 @@ var (
 
 func init() {
     adapters    = make(map[string]adapter.Adapter)
-    lvs         = make(map[string]int)
-    lvs[LevelStringDebug]   = LevelDebug
-    lvs[LevelStringInfo]    = LevelInfo
-    lvs[LevelStringWarn]    = LevelWarn
-    lvs[LevelStringError]   = LevelError
-    lvs[LevelStringFatal]   = LevelFatal
+    lvs         = map[string]int{
+        LevelStringDebug:   LevelDebug,
+        LevelStringInfo:    LevelInfo,
+        LevelStringWarn:    LevelWarn,
+        LevelStringError:   LevelError,
+        LevelStringFatal:   LevelFatal,
+    }
+
     //默认输出INFO
     level = LevelStringInfo
     flag = LogStd
@@ -135,51 +138,58 @@ func Debug(format string, args ...interface{}) {
     if lvs[level] > LevelDebug {
         return
     }
-    output(LevelStringDebug, format, args...)
+    output(DefaultCalldepth, LevelStringDebug, format, args...)
 }
 
 func Info(format string, args ...interface{}) {
     if lvs[level] > LevelInfo {
         return
     }
-    output(LevelStringInfo, format, args...)
+    output(DefaultCalldepth, LevelStringInfo, format, args...)
 }
 
 func Warn(format string, args ...interface{}) {
     if lvs[level] > LevelWarn {
         return
     }
-    output(LevelStringWarn, format, args...)
+    output(DefaultCalldepth, LevelStringWarn, format, args...)
 }
 func Error(format string, args ...interface{}) {
     if lvs[level] > LevelError {
         return
     }
-    output(LevelStringError, format, args...)
+    output(DefaultCalldepth, LevelStringError, format, args...)
 }
 func Fatal(format string, args ...interface{}) {
     if lvs[level] > LevelFatal {
         return
     }
-    output(LevelStringFatal, format, args...)
+    output(DefaultCalldepth, LevelStringFatal, format, args...)
 
-    //准备退出，退出前将所有log flush掉
+    //退出前，将所有log flush掉，阻塞等
     Flush()
     os.Exit(1)
+}
+func Output(calldepth int, format string, args ...interface{}) {
+    output(calldepth, "", format, args...)
 }
 
 func Flush() {
     //结束log监听写，将剩余log写入后退出for循环
     close(logChan)
-
     logChan = nil
+
+    //等待所有日志写完（优化TODO：等待一定时间）
     <-doneChan
     for _, adp := range adapters {
         adp.Close()
     }
 }
 
-func output(lvString string, format string, args ...interface{}) {
+
+//////////////////////////////////////////////////////////////////////
+
+func output(calldepth int, lvString string, format string, args ...interface{}) {
     if logChan == nil { return }
 
     var text string
@@ -198,7 +208,7 @@ func output(lvString string, format string, args ...interface{}) {
     }
 
     if flag & (LogShortFile | LogLongFile) != 0 {
-        _, file, line, ok := runtime.Caller(2)
+        _, file, line, ok := runtime.Caller(calldepth)
         if !ok {
             file = "???"
             line = 0
@@ -211,7 +221,9 @@ func output(lvString string, format string, args ...interface{}) {
         text += " "
     }
 
-    text += fmt.Sprintf("[%v] ", lvString)
+    if lvString != "" {
+        text += fmt.Sprintf("[%v] ", lvString)
+    }
     text += fmt.Sprintf(format, args...)
     text += "\n"
 
@@ -225,7 +237,7 @@ func output(lvString string, format string, args ...interface{}) {
 }
 
 func handleWriteLog() {
-    //要结束该for range循环，只需要close(logChan)
+    //要结束该for range循环，可以close(logChan)
     for logMsg := range logChan {
         for _, adp  := range adapters {
             adp.Write(logMsg.Buff)
@@ -233,6 +245,6 @@ func handleWriteLog() {
         logMessagePut(logMsg)
     }
 
-    //通知flush写完
+    //至此，所有日志写完毕，通知监听者
     doneChan <- struct{}{}
 }

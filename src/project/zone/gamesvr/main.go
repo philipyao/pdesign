@@ -37,10 +37,13 @@ func onShutdown() {
 func main() {
     var err error
 
+    //定义server的log
+    srv.SetLogger(log.Output)
+
     //服务器基础：启动，关闭
-    err = srv.Handlebase(onInit, onShutdown, log.Info)
+    err = srv.HandleBase(onInit, onShutdown)
     if err != nil {
-        log.Fatal("srv.Handlebase() err: %v", err)
+        log.Fatal("srv.HandleBase() err: %v", err)
     }
 
     //进程间通信：RPC服务

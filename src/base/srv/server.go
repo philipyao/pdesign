@@ -157,14 +157,12 @@ func (sv *server) processName() string {
     return sv.pName
 }
 
-func defaultLogFunc(format string, args ...interface{}) {
-    fmt.Printf(format, args...)
-}
 
 //=====================================================
-func Handlebase(onInit func(chan struct{}) error,
-                onShutdown func(),
-                l func(format string, args ...interface{})) error {
+
+//必须实现，server基础接口
+func HandleBase(onInit func(chan struct{}) error,
+                onShutdown func()) error {
     if onInit == nil {
         return errors.New("nil onInit.")
     }
@@ -173,12 +171,9 @@ func Handlebase(onInit func(chan struct{}) error,
     }
     defaultSrv.initFunc = onInit
     defaultSrv.shutdownFunc = onShutdown
-    if l != nil {
-        defaultSrv.logFunc = l
-    } else {
-        defaultSrv.logFunc = defaultLogFunc
+    if defaultSrv.logFunc == nil {
+        defaultSrv.logFunc = defaultLogFunc()
     }
-
     return defaultSrv.init()
 }
 
@@ -210,8 +205,9 @@ func HandleHttp(addr string, hdl map[string]func(w http.ResponseWriter, r *http.
     return nil
 }
 
-func ProcessName() string {
-    return defaultSrv.processName()
+//可选，自定义log输出
+func SetLogger(l func(int, string, ...interface{})) {
+    defaultSrv.logFunc = customLogFunc(l)
 }
 
 // server运行入口函数
@@ -219,4 +215,8 @@ func Run() {
     defaultSrv.serve()
 }
 
+// 获取server进程名字
+func ProcessName() string {
+    return defaultSrv.processName()
+}
 

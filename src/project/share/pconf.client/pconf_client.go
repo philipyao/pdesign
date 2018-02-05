@@ -16,15 +16,7 @@ const (
 
 var (
     currNamespace   string
-    logFunc         func(string, ...interface{})
 )
-
-func init() {
-    defaultLogger := func(format string, args ...interface{}) {
-        fmt.Printf(format, args)
-    }
-    SetLogger(defaultLogger)
-}
 
 func RegisterConfDef(namespace string, confDef interface{}) error {
     var err error
@@ -74,23 +66,20 @@ func RegisterConfDef(namespace string, confDef interface{}) error {
     return nil
 }
 
-func SetLogger(l func(string, ...interface{})) {
-    logFunc = func(format string, args ...interface{}) {
-        l("[pconfclient] " + format, args)
-    }
+func SetLogger(l func(int, string, ...interface{})) {
     core.SetLogger(l)
 }
 
 func Load(done chan struct{}) error {
     //开始从远程服务器加载需要的配置
     keys := core.EntryKeys()
-    logFunc("start loading confs: count %v", len(keys))
+    core.Log("start loading confs: count %v", len(keys))
     keys = append(keys, NameKeyZKAddr)
     confs, err := core.FetchConfFromServer(currNamespace, keys)
     if err != nil {
         return err
     }
-    logFunc("fetch confs from confsvr ok.")
+    core.Log("fetch confs from confsvr ok.")
 
     // get zkaddr
     var zkaddr string
@@ -120,13 +109,13 @@ func Load(done chan struct{}) error {
         if err != nil {
             return err
         }
-        logFunc("watch entry <%v %v>.", c.Namespace, c.Key)
+        core.Log("watch entry <%v %v>.", c.Namespace, c.Key)
     }
 
     // listen updates
     go handleWatch(notify, done)
 
-    logFunc("finished loading confs.")
+    core.Log("finished loading confs.")
     return nil
 }
 
@@ -144,18 +133,18 @@ func handleWatch(notify chan string, done chan struct{}) {
 func handleUpdate(key string) {
     confs, err := core.FetchConfFromServer(currNamespace, []string{key})
     if err != nil {
-        logFunc("FetchConfFromServer: %v", err)
+        core.Log("FetchConfFromServer: %v", err)
         return
     }
     if len(confs) != 1 {
-        logFunc("inv conf counts")
+        core.Log("inv conf counts")
         return
     }
     if confs[0].Key != key {
-        logFunc("mismatch key %v %+v", key, confs[0])
+        core.Log("mismatch key %v %+v", key, confs[0])
         return
     }
-    logFunc("handleUpdate: key %v", key)
+    core.Log("handleUpdate: key %v", key)
     //TODO
     core.UpdateEntry(key, "", confs[0].Value)
 }

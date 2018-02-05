@@ -48,6 +48,9 @@ func NewAdapterFile(logName string, opt *Options) (*AdapterFile, error) {
 	return a, nil
 }
 
+//校验AdapterFile符合Adapter接口
+var _ Adapter = &AdapterFile{}
+
 func (af *AdapterFile) Write(b []byte) error {
 	var err error
 	date := makeCurrDate()
@@ -84,6 +87,7 @@ func (af *AdapterFile) Close() {
 	}
 }
 
+///////////////////////////////////////////////////////////////
 func (af *AdapterFile) dailyRotate() {
 	//自动日期轮转
 }

@@ -26,7 +26,7 @@ func WatchEntryUpdate(namespace, key string, notify chan string, done chan struc
     }
     entryPath := strings.Join([]string{commdef.ZKPrefixConfig, namespace, key}, "/")
     return conn.Watch(entryPath, func(p string, d []byte, e error){
-        logger("fire watch for local<%v %v>, code %v\n", namespace, key, e)
+        Log("fire watch for local<%v %v>, code %v\n", namespace, key, e)
         if e != nil {
             //todo watch出错
         }

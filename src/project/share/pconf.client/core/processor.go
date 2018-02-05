@@ -20,18 +20,10 @@ var (
 var (
     processors  map[string]*confProcessor
     errorInterface = reflect.TypeOf((*error)(nil)).Elem()
-
-    logger  func(string, ...interface{})
 )
 
 func init() {
     processors = make(map[string]*confProcessor)
-}
-
-func SetLogger(l func(string, ...interface{})) {
-    logger = func(f string, a ...interface{}) {
-        l("[pconfclient] " + f, a)
-    }
 }
 
 func RegisterEntry(tag string, goName string, v reflect.Value) error {
@@ -74,7 +66,7 @@ func InitEntry(key, val string) error {
     if err != nil {
         return fmt.Errorf("set conf failed: key %v, val %v, err %v", key, val, err)
     }
-    logger("key %v init local ok.", key)
+    Log("key %v init local ok.", key)
     return nil
 }
 
@@ -93,13 +85,13 @@ func UpdateEntry(key, oldVal, val string) error {
     if err != nil {
         return fmt.Errorf("set conf failed: key %v, val %v, err %v", key, val, err)
     }
-    logger("key %v update set local value %v ok.", key, val)
+    Log("key %v update set local value %v ok.", key, val)
 
     //call on updater
     in = []reflect.Value{reflect.ValueOf(oldVal), reflect.ValueOf(val)}
     processor.FuncOnUpdate.Call(in)
 
-    logger("key %v on-update local ok.", key)
+    Log("key %v on-update local ok.", key)
     return nil
 }
 

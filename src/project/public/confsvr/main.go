@@ -39,7 +39,7 @@ func main() {
     var err error
 
     //服务器基础：启动，关闭
-    err = srv.Handlebase(onInit, onShutdown, log.Info)
+    err = srv.Handlebase(onInit, onShutdown)
     if err != nil {
         log.Fatal("srv.Handlebase() err: %v", err)
     }
