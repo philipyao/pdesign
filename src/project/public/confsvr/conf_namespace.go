@@ -17,7 +17,7 @@ func createNamespaceCommon() error {
     }
     ns := &Namespace {
         Name: name,
-        Desc: "公共配置区间，可以被私有同名配置覆盖",
+        Desc: "公共配置区间，配置项可以被私有同名配置项覆盖",
         Creator: AdminUsername,
     }
     log.Info("create namespace [common] ok")
