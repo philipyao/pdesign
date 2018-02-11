@@ -69,11 +69,17 @@ func finiCore()  {
 
 func prepareDBData() error {
     var err error
+
+    //create admin user
     err = createAdmin()
     if err != nil {
         return err
     }
-    //TODO create common namespace
+    // create common namespace
+    err = createNamespaceCommon()
+    if err != nil {
+        return err
+    }
     return nil
 }
 

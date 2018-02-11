@@ -119,6 +119,34 @@ func deleteUser(userName string) error {
     return err
 }
 
+func existNamespace(name string) (bool, error) {
+    if engine == nil {
+        return false, errors.New("null engine")
+    }
+    ns := &Namespace{Name: name}
+    total, err := engine.Count(ns)
+    if err != nil {
+        log.Error("engine.Count() error %v, name %v", err, name)
+        return false, err
+    }
+    return total > 0, nil
+}
+
+func insertNamespace(ns *Namespace) error  {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Insert(ns)
+    if err != nil {
+        log.Error("engine.Insert() error %v, ns %+v", err, ns)
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
+}
+
 func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
     if engine == nil {
         return nil, nil, errors.New("null engine")
