@@ -7,9 +7,43 @@ import (
 const (
     ConfNamespaceOms    = "oms"
     ConfNamespaceCommon = "common"
+
+    AdminUsername       = "admin"
+    AdminPasswd         = "hellopconf"
+    DefaultSaltLen      = 32
+    ClientSaltPart      = "^rR@8=YlsU"
+
+    TableNameUser       = "tbl_user"
     TableNameConf       = "tbl_conf"
+    TableNameNamespace  = "tbl_namespace"
     TableNameConfOplog  = "tbl_conf_oplog"
 )
+
+//用户表
+type User struct {
+    Username        string      `xorm:"pk varchar(32) notnull"`
+    Passwd          string      `xorm:"varchar(128) notnull"`
+    Enabled         uint        `xorm:"'enabled'"`
+    IsSuper         uint        `xorm:"'is_super'"` //是否超级用户
+    Salt            string      `xorm:"varchar(32) notnull"`    //随机密码盐
+    UpdatedAt       time.Time   `xorm:"updated"`
+    CreatedAt       time.Time   `xorm:"created"`
+}
+func (u User) TableName() string {
+    return TableNameUser
+}
+
+//namespace表
+type Namespace struct {
+    Name            string      `xorm:"pk varchar(32) notnull"`
+    Desc            string      `xorm:"varchar(128)"`
+    Creator         string      `xorm:"varchar(32)"`
+    CreatedAt       time.Time   `xorm:"created"`
+}
+func (n Namespace) TableName() string {
+    return TableNameNamespace
+}
+
 //配置表
 type Config struct {
     ID              uint        `xorm:"pk autoincr 'id'"`

@@ -54,6 +54,71 @@ func initDB(objs ...interface{}) error {
     return nil
 }
 
+func queryUser(userName string) (*User, error) {
+    if engine == nil {
+        return nil, errors.New("null engine")
+    }
+    var user User
+    has, err := engine.Id(userName).Get(&user)
+    if err != nil {
+        log.Error("queryUser() error %v, userName %v", err, userName)
+        return nil, err
+    }
+    if !has {
+        return nil, nil
+    }
+    return &user, nil
+}
+
+func existUser(userName string) (bool, error) {
+    if engine == nil {
+        return false, errors.New("null engine")
+    }
+    user := &User{Username: userName}
+    total, err := engine.Count(user)
+    if err != nil {
+        log.Error("engine.Count() error %v, userName %v", err, userName)
+        return false, err
+    }
+    return total > 0, nil
+}
+
+func insertUser(user *User) error  {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Insert(user)
+    if err != nil {
+        log.Error("engine.Insert() error %v, user %+v", err, user)
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
+}
+
+func updateUser(user *User) error {
+    if engine == nil {
+        return errors.New("null engine")
+    }
+    affected, err := engine.Id(user.Username).Update(user)
+    if err != nil {
+        log.Error("engine.Update() error %v, user %+v", err, user)
+        return err
+    }
+    if affected != 1 {
+        return fmt.Errorf("inv affected %v", affected)
+    }
+    return nil
+}
+
+func deleteUser(userName string) error {
+    user := new(User)
+    _, err := engine.Id(userName).Delete(user)
+    return err
+}
+
 func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
     if engine == nil {
         return nil, nil, errors.New("null engine")

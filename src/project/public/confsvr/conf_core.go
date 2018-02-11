@@ -17,13 +17,17 @@ var (
 func initCore() error {
     var (
         err error
+        dbUser User
+        dbNamespace Namespace
         dbConfig Config
         dbOpLog ConfigOplog
     )
-    err = initDB(&dbConfig, &dbOpLog)
+    err = initDB(&dbUser, &dbNamespace, &dbConfig, &dbOpLog)
     if err != nil {
         return err
     }
+
+    err = prepareDBData()
 
     log.Debug("loadConfigFromDB...")
     confs, namespaces, err = loadConfigFromDB()
@@ -61,6 +65,16 @@ func initCore() error {
 func finiCore()  {
     finiDB()
     finiZK()
+}
+
+func prepareDBData() error {
+    var err error
+    err = createAdmin()
+    if err != nil {
+        return err
+    }
+    //TODO create common namespace
+    return nil
 }
 
 func updateConfig(id uint, value string, version int) error {

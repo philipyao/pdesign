@@ -137,6 +137,7 @@ func (sm *SessionMgr) SessionAttach(w http.ResponseWriter, r *http.Request) (*Se
     }
     element := sm.List.PushFront(session)
     sm.Sessions[sid] = element
+    //sid写入cookie，后面客户端的请求会自动带上这个字段
     sm.writeSid(w, sid)
 
     log.Debug("create session %v", sid)

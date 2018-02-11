@@ -103,6 +103,17 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
         userName, passwd, veriCode := r.FormValue("username"), r.FormValue("password"), r.FormValue("code")
         log.Debug("ADMIN LOGIN: [%v] [%v] [%v]", userName, passwd, veriCode)
+        pass, err := verifyUser(userName, passwd)
+        if err != nil {
+            errcode := http.StatusInternalServerError
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+        if !pass {
+            errcode := http.StatusUnauthorized
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
         sess.Set(KeyUserName, userName)
 
         w.Header().Set("Content-Type", "application/json")
