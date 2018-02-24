@@ -54,6 +54,20 @@ func initDB(objs ...interface{}) error {
     return nil
 }
 
+func listUser() (users []*User, err error) {
+    if engine == nil {
+        return nil, errors.New("null engine")
+    }
+
+    users = make([]*User, 0)
+    err = engine.Find(&users)
+    if err != nil {
+        log.Error("engine.Find() error %v", err)
+        return nil, err
+    }
+    return
+}
+
 func queryUser(userName string) (*User, error) {
     if engine == nil {
         return nil, errors.New("null engine")

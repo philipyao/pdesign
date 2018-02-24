@@ -57,12 +57,12 @@ func verifyUser(userName, cliPasswd string) (bool, error) {
 }
 
 //创建普通账号
-func createUser(userName, cliPasswd string) error {
+func CreateUser(userName, cliPasswd string) (*User, error) {
     var user User
     user.Username = userName
     randStr, err := util.GenerateRandomString(DefaultSaltLen)
     if err != nil {
-        return err
+        return nil, err
     }
     user.Salt = randStr
     user.Passwd = encodePasswd(user.Salt, cliPasswd)
@@ -74,9 +74,9 @@ func createUser(userName, cliPasswd string) error {
 
     err = insertUser(&user)
     if err != nil {
-        return err
+        return nil, err
     }
-    return nil
+    return &user, nil
 }
 
 //禁用某一普通账号
@@ -111,6 +111,29 @@ func enableUser(userName string) error {
     }
     user.Enabled = 1
     return updateUser(user)
+}
+
+func CheckUserPrivilege(userName string) (bool, error) {
+    user, err := queryUser(userName)
+    if err != nil {
+        return false, err
+    }
+    return user.IsSuper > 0, nil
+}
+
+func ListUser() ([]*User, error) {
+    dbUsers, err := listUser()
+    if err != nil {
+        return nil, err
+    }
+    users := make([]*User, 0, len(dbUsers))
+    for _, du := range dbUsers {
+        if du.IsSuper > 0 {
+            continue
+        }
+        users = append(users, du)
+    }
+    return users, nil
 }
 
 //=====================================================================

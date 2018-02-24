@@ -76,6 +76,33 @@ type AdminUpdateRsp struct {
 	Failed	     []string			   `json:"errmsgs"`
 }
 
+type AdminListUserRsp struct {
+    AdminError
+    Entries      []*UserEntry          `json:"entries"`
+}
+type UserEntry struct {
+    Username        string              `json:"username"`
+    Enabled         uint                `json:"enabled"`
+    CreatedAt       int                 `json:"created_at"`
+}
+
+type AdminCreateUserReq struct {
+    Username        string              `json:"username"`
+    EncPasswd       string              `json:"enc_passwd""`    //客户端初次加密后的密码
+}
+type AdminCreateUserRsp struct {
+    AdminError
+    Entry        *UserEntry          `json:"entry"`
+}
+
+type AdminChangeUserReq struct {
+    Username        string              `json:"username"`
+    Enable          uint32              `json:"enable"` //启用或者禁用
+}
+type AdminChangeUserRsp struct {
+    AdminError
+}
+
 var (
     smgr *SessionMgr = NewManager(3600)
 )
@@ -249,8 +276,178 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         }
 		rsp.Failed = failed
     },
+
+    "/api/user/list": func(w http.ResponseWriter, r *http.Request) {
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+        username := sess.Get(KeyUserName)
+        if username == nil {
+            //需要重新登录
+            doWriteError(w, "need login")
+            return
+        }
+
+        if r.Method != "GET" {
+            http.Error(w, "inv method", http.StatusBadRequest)
+            return
+        }
+
+        cando, err := CheckUserPrivilege(username.(string))
+        if err != nil {
+            errcode := http.StatusInternalServerError
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+        if !cando {
+            errcode := http.StatusUnauthorized
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+        var rsp AdminListUserRsp
+        users, err := ListUser()
+        if err != nil {
+            rsp.Errmsg = err.Error()
+        } else {
+            for _, u := range users {
+                rsp.Entries = append(rsp.Entries, dumpUserEntry(*u))
+            }
+        }
+        doWriteJson(w, rsp)
+    },
+
+    "/api/user/create": func(w http.ResponseWriter, r *http.Request) {
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+        username := sess.Get(KeyUserName)
+        if username == nil {
+            //需要重新登录
+            doWriteError(w, "need login")
+            return
+        }
+
+        if r.Method != "POST" {
+            http.Error(w, "inv method", http.StatusBadRequest)
+            return
+        }
+
+        cando, err := CheckUserPrivilege(username.(string))
+        if err != nil {
+            errcode := http.StatusInternalServerError
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+        if !cando {
+            errcode := http.StatusUnauthorized
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+
+        reqdata, err := ioutil.ReadAll(r.Body)
+        if err != nil {
+            log.Error("read body error %v", err)
+            return
+        }
+        if len(reqdata) == 0 {
+            log.Error("no reqdata for /api/user/create")
+            http.Error(w, "no reqdata", http.StatusNoContent)
+            return
+        }
+        var req AdminCreateUserReq
+        err = json.Unmarshal(reqdata, &req)
+        if err != nil {
+            log.Error(err.Error())
+            http.Error(w, "error parse json reqdata", http.StatusBadRequest)
+            return
+        }
+        log.Debug("user create req: %+v", req)
+        if req.Username == "" || req.EncPasswd == "" {
+            http.Error(w, "invalid req data", http.StatusBadRequest)
+            return
+        }
+
+        var rsp AdminCreateUserRsp
+        user, err := CreateUser(req.Username, req.EncPasswd)
+        if err != nil {
+            rsp.Errmsg = err.Error()
+        } else {
+            rsp.Entry = dumpUserEntry(*user)
+        }
+        doWriteJson(w, rsp)
+    },
+
+    "/api/user/change": func(w http.ResponseWriter, r *http.Request) {
+        sess, err := smgr.SessionAttach(w, r)
+        if err != nil {
+            doWriteError(w, err.Error())
+            return
+        }
+        username := sess.Get(KeyUserName)
+        if username == nil {
+            //需要重新登录
+            doWriteError(w, "need login")
+            return
+        }
+
+        if r.Method != "POST" {
+            http.Error(w, "inv method", http.StatusBadRequest)
+            return
+        }
+
+        cando, err := CheckUserPrivilege(username.(string))
+        if err != nil {
+            errcode := http.StatusInternalServerError
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+        if !cando {
+            errcode := http.StatusUnauthorized
+            http.Error(w, http.StatusText(errcode), errcode)
+            return
+        }
+
+        reqdata, err := ioutil.ReadAll(r.Body)
+        if err != nil {
+            log.Error("read body error %v", err)
+            return
+        }
+        if len(reqdata) == 0 {
+            log.Error("no reqdata for /api/user/change")
+            http.Error(w, "no reqdata", http.StatusNoContent)
+            return
+        }
+        var req AdminChangeUserReq
+        err = json.Unmarshal(reqdata, &req)
+        if err != nil {
+            log.Error(err.Error())
+            http.Error(w, "error parse json reqdata", http.StatusBadRequest)
+            return
+        }
+        log.Debug("user create req: %+v", req)
+        if req.Username == "" {
+            http.Error(w, "invalid req data", http.StatusBadRequest)
+            return
+        }
+
+        var rsp AdminChangeUserRsp
+        if req.Enable == 0 {
+             err = disableUser(req.Username)
+        } else {
+            err = enableUser(req.Username)
+        }
+        if err != nil {
+            rsp.Errmsg = err.Error()
+        }
+        doWriteJson(w, rsp)
+    },
 }
 
+//===================================================================
 func dumpConfEntry(c Config) *ConfEntry {
     return &ConfEntry{
         ID:             c.ID,
@@ -260,6 +457,14 @@ func dumpConfEntry(c Config) *ConfEntry {
         Updated:        uint32(c.UpdatedAt.Unix()),
         Created:        uint32(c.CreatedAt.Unix()),
         Version:        c.Version,
+    }
+}
+
+func dumpUserEntry (u User) *UserEntry {
+    return &UserEntry{
+        Username: u.Username,
+        Enabled: u.Enabled,
+        CreatedAt: int(u.CreatedAt.Unix()),
     }
 }
 
