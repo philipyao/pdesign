@@ -2,6 +2,7 @@ package main
 
 import(
     "fmt"
+    "errors"
     "io/ioutil"
     "net/http"
     "encoding/json"
@@ -14,7 +15,25 @@ const (
     KeyUserName     = "username"
 )
 
+//错误码
+const (
+    ErrOK                   = 0
+
+    ErrSystem               = -1                //系统错误
+    ErrParamParseForm       = -20001            //非法的form值
+    ErrParamParseBody       = -20002            //读取body失败
+    ErrParamInvalid         = -20003            //参数非法
+    ErrMethod               = -20101            //非法的method
+
+    ErrUnauthorized         = 40001             //未授权
+    ErrAccountDisabled      = 40002             //账号被禁用
+    ErrAccountPasswd        = 40003             //用户名或密码错误
+    ErrSessionExpired       = 40004             //服务器session过期，需要重新登录
+    ErrAccountExist         = 40005             //用户已存在
+)
+
 type AdminError struct {
+    Errcode     int         `json:"errcode"`
     Errmsg      string      `json:"errmsg"`
 }
 
@@ -109,38 +128,48 @@ var (
 
 var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
+    //登录
     "/api/login": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
 
         err = r.ParseForm()
         if err != nil {
             log.Error("parse form error: %v", err)
-            http.Error(w, err.Error(), http.StatusBadRequest)
+            doWriteError(w, ErrParamParseForm, err.Error())
             return
         }
         if r.Method != "POST" {
-            fmt.Printf("handle http request, method %v\n", r.Method)
-            http.Error(w, "inv method", http.StatusMethodNotAllowed)
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
             return
         }
 
-        userName, passwd, veriCode := r.FormValue("username"), r.FormValue("password"), r.FormValue("code")
-        log.Debug("ADMIN LOGIN: [%v] [%v] [%v]", userName, passwd, veriCode)
+        userName, passwd:= r.FormValue("username"), r.FormValue("password")
+        log.Debug("admin user LOGIN: %v@%v", userName, passwd)
+        if userName == "" || passwd == "" {
+            doWriteError(w, ErrParamInvalid, "")
+            return
+        }
+
         pass, err := verifyUser(userName, passwd)
         if err != nil {
-            errcode := http.StatusInternalServerError
-            http.Error(w, http.StatusText(errcode), errcode)
+            if err == ErrUserDisabled {
+                doWriteError(w, ErrAccountDisabled, "")
+                return
+            }
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         if !pass {
-            errcode := http.StatusUnauthorized
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrAccountPasswd, "")
             return
         }
+
+        //关联session和user
         sess.Set(KeyUserName, userName)
 
         w.Header().Set("Content-Type", "application/json")
@@ -151,23 +180,23 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         doWriteJson(w, loginRsp)
     },
 
+    //列出所有配置
     "/api/list": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
-            //需要重新登录
-            doWriteError(w, "need login")
+            //session过期，需要重新登录
+            doWriteError(w, ErrSessionExpired, "")
             return
         }
 
         if r.Method != "POST" {
-            log.Info("err handle http request, method %v", r.Method)
-            http.Error(w, "inv method", http.StatusBadRequest)
-            return
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
         }
 
         results := AllConfig()
@@ -178,58 +207,45 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         doWriteJson(w, rsp)
     },
 
+    //修改配置
     "/api/change": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
-            //需要重新登录
-            doWriteError(w, "need login")
+            //session过期，需要重新登录
+            doWriteError(w, ErrSessionExpired, "")
             return
         }
 
         if r.Method != "POST" {
-            log.Info("err handle http request, method %v", r.Method)
-            http.Error(w, "inv method", http.StatusBadRequest)
-            return
-        }
-        reqdata, err := ioutil.ReadAll(r.Body)
-        if err != nil {
-            log.Error("read body error %v", err)
-            return
-        }
-        if len(reqdata) == 0 {
-            log.Error("no reqdata for /api/update")
-            http.Error(w, "no reqdata for /api/update", http.StatusNoContent)
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
             return
         }
         var req AdminUpdateReq
-        err = json.Unmarshal(reqdata, &req)
+        err = readBodyData(r, &req)
         if err != nil {
-            log.Error(err.Error())
-            http.Error(w, "error parse json reqdata for /api/update", http.StatusBadRequest)
+            doWriteError(w, ErrParamParseBody, err.Error())
             return
         }
 		log.Debug("update req: %+v", req)
-        var rsp AdminUpdateRsp
-        defer func() {
-            log.Debug("rsp %+v", rsp)
-            doWriteJson(w, rsp)
-        }()
+
 
         //开始参数校验
 		if len(req.Updates) == 0 && len(req.Adds) == 0 {
-            rsp.Errmsg = "no adds or updates provided"
+            doWriteError(w, ErrParamInvalid, "no adds or updates provided")
 			return
 		}
         if req.Name == "" || req.Author == "" {
-            rsp.Errmsg = "no name or author provided, pls check"
+            doWriteError(w, ErrParamInvalid, "no name or author provided, pls check")
             return
         }
 
+        var rsp AdminUpdateRsp
 		var failed []string
         var changes []*OpChange
 		for _, upd := range req.Updates {
@@ -275,35 +291,35 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             addOplog(req.Name, req.Comment, req.Author, changes)
         }
 		rsp.Failed = failed
+        doWriteJson(w, rsp)
     },
 
     "/api/user/list": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
-            //需要重新登录
-            doWriteError(w, "need login")
+            //session过期，需要重新登录
+            doWriteError(w, ErrSessionExpired, "")
             return
         }
-
         if r.Method != "GET" {
-            http.Error(w, "inv method", http.StatusBadRequest)
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
             return
         }
 
+        //校验用户权限
         cando, err := CheckUserPrivilege(username.(string))
         if err != nil {
-            errcode := http.StatusInternalServerError
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         if !cando {
-            errcode := http.StatusUnauthorized
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrUnauthorized, "")
             return
         }
         var rsp AdminListUserRsp
@@ -321,114 +337,87 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/user/create": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
-            //需要重新登录
-            doWriteError(w, "need login")
+            //session过期，需要重新登录
+            doWriteError(w, ErrSessionExpired, "")
             return
         }
-
         if r.Method != "POST" {
-            http.Error(w, "inv method", http.StatusBadRequest)
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
             return
         }
 
         cando, err := CheckUserPrivilege(username.(string))
         if err != nil {
-            errcode := http.StatusInternalServerError
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         if !cando {
-            errcode := http.StatusUnauthorized
-            http.Error(w, http.StatusText(errcode), errcode)
-            return
-        }
-
-        reqdata, err := ioutil.ReadAll(r.Body)
-        if err != nil {
-            log.Error("read body error %v", err)
-            return
-        }
-        if len(reqdata) == 0 {
-            log.Error("no reqdata for /api/user/create")
-            http.Error(w, "no reqdata", http.StatusNoContent)
+            doWriteError(w, ErrUnauthorized, "")
             return
         }
         var req AdminCreateUserReq
-        err = json.Unmarshal(reqdata, &req)
+        err = readBodyData(r, &req)
         if err != nil {
-            log.Error(err.Error())
-            http.Error(w, "error parse json reqdata", http.StatusBadRequest)
+            doWriteError(w, ErrParamParseBody, err.Error())
             return
         }
         log.Debug("user create req: %+v", req)
-        if req.Username == "" || req.EncPasswd == "" {
-            http.Error(w, "invalid req data", http.StatusBadRequest)
+        if req.Username == "" || len(req.EncPasswd) != DefaultCliPasswdLen {
+            doWriteError(w, ErrParamInvalid, "empty username or mismatch encpasswd length")
             return
         }
 
-        var rsp AdminCreateUserRsp
-        user, err := CreateUser(req.Username, req.EncPasswd)
-        if err != nil {
-            rsp.Errmsg = err.Error()
-        } else {
-            rsp.Entry = dumpUserEntry(*user)
+        user, retcode := CreateUser(req.Username, req.EncPasswd)
+        if retcode != ErrOK {
+            doWriteError(w, retcode, "")
+            return
         }
+        var rsp AdminCreateUserRsp
+        rsp.Entry = dumpUserEntry(*user)
         doWriteJson(w, rsp)
     },
 
     "/api/user/change": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, err.Error())
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
-            //需要重新登录
-            doWriteError(w, "need login")
+            //session过期，需要重新登录
+            doWriteError(w, ErrSessionExpired, "")
             return
         }
-
         if r.Method != "POST" {
-            http.Error(w, "inv method", http.StatusBadRequest)
+            log.Error("handle http request, inv method %v", r.Method)
+            doWriteError(w, ErrMethod, "")
             return
         }
 
         cando, err := CheckUserPrivilege(username.(string))
         if err != nil {
-            errcode := http.StatusInternalServerError
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrSystem, err.Error())
             return
         }
         if !cando {
-            errcode := http.StatusUnauthorized
-            http.Error(w, http.StatusText(errcode), errcode)
+            doWriteError(w, ErrUnauthorized, "")
             return
         }
 
-        reqdata, err := ioutil.ReadAll(r.Body)
-        if err != nil {
-            log.Error("read body error %v", err)
-            return
-        }
-        if len(reqdata) == 0 {
-            log.Error("no reqdata for /api/user/change")
-            http.Error(w, "no reqdata", http.StatusNoContent)
-            return
-        }
         var req AdminChangeUserReq
-        err = json.Unmarshal(reqdata, &req)
+        err = readBodyData(r, &req)
         if err != nil {
-            log.Error(err.Error())
-            http.Error(w, "error parse json reqdata", http.StatusBadRequest)
+            doWriteError(w, ErrParamParseBody, err.Error())
             return
         }
-        log.Debug("user create req: %+v", req)
+        log.Debug("user change req: %+v", req)
         if req.Username == "" {
             http.Error(w, "invalid req data", http.StatusBadRequest)
             return
@@ -448,6 +437,18 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 }
 
 //===================================================================
+
+func readBodyData(r *http.Request, object interface{}) error {
+    reqdata, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        return fmt.Errorf("read http body error %v", err)
+    }
+    if len(reqdata) == 0 {
+        return errors.New("no body data found")
+    }
+    return json.Unmarshal(reqdata, object)
+}
+
 func dumpConfEntry(c Config) *ConfEntry {
     return &ConfEntry{
         ID:             c.ID,
@@ -479,8 +480,10 @@ func doWriteJson(w http.ResponseWriter, pkg interface{}) {
     w.Write(data)
 }
 
-func doWriteError(w http.ResponseWriter, errmsg string) {
+func doWriteError(w http.ResponseWriter, errcode int, errmsg string) {
     var rsp AdminError
+    rsp.Errcode = errcode
     rsp.Errmsg = errmsg
     doWriteJson(w, &rsp)
 }
+

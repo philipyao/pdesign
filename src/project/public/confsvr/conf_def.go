@@ -11,6 +11,7 @@ const (
     AdminUsername       = "admin"
     AdminPasswd         = "hellopconf"
     DefaultSaltLen      = 32
+    DefaultCliPasswdLen = 64
     ClientSaltPart      = "^rR@8=YlsU"
 
     TableNameUser       = "tbl_user"

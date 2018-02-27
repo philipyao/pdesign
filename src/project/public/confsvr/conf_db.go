@@ -91,7 +91,6 @@ func existUser(userName string) (bool, error) {
     user := &User{Username: userName}
     total, err := engine.Count(user)
     if err != nil {
-        log.Error("engine.Count() error %v, userName %v", err, userName)
         return false, err
     }
     return total > 0, nil
@@ -103,8 +102,7 @@ func insertUser(user *User) error  {
     }
     affected, err := engine.Insert(user)
     if err != nil {
-        log.Error("engine.Insert() error %v, user %+v", err, user)
-        return err
+        return fmt.Errorf("engine.Insert() error %v, user %+v", err, user)
     }
     if affected != 1 {
         return fmt.Errorf("inv affected %v", affected)
@@ -116,7 +114,7 @@ func updateUser(user *User) error {
     if engine == nil {
         return errors.New("null engine")
     }
-    affected, err := engine.Id(user.Username).Update(user)
+    affected, err := engine.Id(user.Username).Cols("enabled").Update(user)
     if err != nil {
         log.Error("engine.Update() error %v, user %+v", err, user)
         return err

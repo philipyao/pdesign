@@ -1,12 +1,17 @@
 package main
 
 import (
+    "errors"
     "crypto/sha256"
     "crypto/sha1"
     "encoding/hex"
 
     "base/util"
     "base/log"
+)
+
+var (
+    ErrUserDisabled     = errors.New("user disabled")
 )
 
 //预先生成管理员账号
@@ -49,6 +54,7 @@ func verifyUser(userName, cliPasswd string) (bool, error) {
     }
     if user.Enabled == 0 {
         //返回错误码
+        return false, ErrUserDisabled
     }
     //服务器二次加密
     encPwd := encodePasswd(user.Salt, cliPasswd)
@@ -57,12 +63,23 @@ func verifyUser(userName, cliPasswd string) (bool, error) {
 }
 
 //创建普通账号
-func CreateUser(userName, cliPasswd string) (*User, error) {
+func CreateUser(userName, cliPasswd string) (*User, int) {
+    exist, err := existUser(userName)
+    if err != nil {
+        log.Error("error existUser: %v", err)
+        return nil, ErrSystem
+    }
+    if exist {
+        return nil, ErrAccountExist
+    }
+
     var user User
     user.Username = userName
+    //为用户创建随机盐
     randStr, err := util.GenerateRandomString(DefaultSaltLen)
     if err != nil {
-        return nil, err
+        log.Error("err CreateUser: %v", err)
+        return nil, ErrSystem
     }
     user.Salt = randStr
     user.Passwd = encodePasswd(user.Salt, cliPasswd)
@@ -70,13 +87,14 @@ func CreateUser(userName, cliPasswd string) (*User, error) {
                 user.Username, user.Passwd, user.Salt)
 
     user.Enabled = 1
-    user.IsSuper = 0
+    user.IsSuper = 0    //都是普通用户
 
     err = insertUser(&user)
     if err != nil {
-        return nil, err
+        log.Error("error insertUser: %v", err)
+        return nil, ErrSystem
     }
-    return &user, nil
+    return &user, ErrOK
 }
 
 //禁用某一普通账号
