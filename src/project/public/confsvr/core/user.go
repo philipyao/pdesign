@@ -1,44 +1,41 @@
-package main
+package core
 
 import (
-    "errors"
     "crypto/sha256"
     "crypto/sha1"
     "encoding/hex"
 
     "base/util"
     "base/log"
-)
 
-var (
-    ErrUserDisabled     = errors.New("user disabled")
+    "project/public/confsvr/def"
+    "project/public/confsvr/db"
 )
 
 //预先生成管理员账号
 func createAdmin() error {
-    name := AdminUsername
-    exist, err := existUser(name)
+    name := def.AdminUsername
+    exist, err := db.ExistUser(name)
     if err != nil {
         return err
     }
     if exist {
-        deleteUser(name)
-        //return nil
+        return nil
     }
-    var adminUser User
+    var adminUser def.User
     adminUser.Username = name
-    randStr, err := util.GenerateRandomString(DefaultSaltLen)
+    randStr, err := util.GenerateRandomString(def.DefaultSaltLen)
     if err != nil {
         return err
     }
     adminUser.Salt = randStr
-    adminUser.Passwd = encodeRawPasswd(adminUser.Username, adminUser.Salt, AdminPasswd)
+    adminUser.Passwd = encodeRawPasswd(adminUser.Username, adminUser.Salt, def.AdminPasswd)
     log.Info("passwd: %v", adminUser.Passwd)
 
     adminUser.Enabled = 1
     adminUser.IsSuper = 1
 
-    err = insertUser(&adminUser)
+    err = db.InsertUser(&adminUser)
     if err != nil {
         return err
     }
@@ -46,15 +43,15 @@ func createAdmin() error {
 }
 
 //校验用户登录密码
-func verifyUser(userName, cliPasswd string) (bool, error) {
+func VerifyUser(userName, cliPasswd string) (bool, error) {
     //cliPasswd为客户端初次加密后的密码
-    user, err := dbQueryUser(userName)
+    user, err := db.QueryUser(userName)
     if err != nil {
         return false, err
     }
     if user.Enabled == 0 {
         //返回错误码
-        return false, ErrUserDisabled
+        return false, def.CodeUserDisabled
     }
     //服务器二次加密
     encPwd := encodePasswd(user.Salt, cliPasswd)
@@ -63,23 +60,23 @@ func verifyUser(userName, cliPasswd string) (bool, error) {
 }
 
 //创建普通账号
-func CreateUser(userName, cliPasswd string) (*User, int) {
-    exist, err := existUser(userName)
+func CreateUser(userName, cliPasswd string) (*def.User, int) {
+    exist, err := db.ExistUser(userName)
     if err != nil {
         log.Error("error existUser: %v", err)
-        return nil, ErrSystem
+        return nil, def.ErrSystem
     }
     if exist {
-        return nil, ErrAccountExist
+        return nil, def.ErrAccountExist
     }
 
-    var user User
+    var user def.User
     user.Username = userName
     //为用户创建随机盐
-    randStr, err := util.GenerateRandomString(DefaultSaltLen)
+    randStr, err := util.GenerateRandomString(def.DefaultSaltLen)
     if err != nil {
         log.Error("err CreateUser: %v", err)
-        return nil, ErrSystem
+        return nil, def.ErrSystem
     }
     user.Salt = randStr
     user.Passwd = encodePasswd(user.Salt, cliPasswd)
@@ -89,21 +86,21 @@ func CreateUser(userName, cliPasswd string) (*User, int) {
     user.Enabled = 1
     user.IsSuper = 0    //都是普通用户
 
-    err = insertUser(&user)
+    err = db.InsertUser(&user)
     if err != nil {
         log.Error("error insertUser: %v", err)
-        return nil, ErrSystem
+        return nil, def.ErrSystem
     }
-    return &user, ErrOK
+    return &user, def.ErrOK
 }
 
-func QueryUser(userName string) (*User, error) {
-    return dbQueryUser(userName)
+func QueryUser(userName string) (*def.User, error) {
+    return db.QueryUser(userName)
 }
 
 //禁用某一普通账号
-func disableUser(userName string) error {
-    user, err := dbQueryUser(userName)
+func DisableUser(userName string) error {
+    user, err := db.QueryUser(userName)
     if err != nil {
         return err
     }
@@ -115,12 +112,12 @@ func disableUser(userName string) error {
         return nil
     }
     user.Enabled = 0
-    return updateUser(user)
+    return db.UpdateUser(user)
 }
 
 //启用某一普通账号
-func enableUser(userName string) error {
-    user, err := dbQueryUser(userName)
+func EnableUser(userName string) error {
+    user, err := db.QueryUser(userName)
     if err != nil {
         return err
     }
@@ -132,23 +129,23 @@ func enableUser(userName string) error {
         return nil
     }
     user.Enabled = 1
-    return updateUser(user)
+    return db.UpdateUser(user)
 }
 
 func CheckUserPrivilege(userName string) (bool, error) {
-    user, err := dbQueryUser(userName)
+    user, err := db.QueryUser(userName)
     if err != nil {
         return false, err
     }
     return user.IsSuper > 0, nil
 }
 
-func ListUser() ([]*User, error) {
-    dbUsers, err := listUser()
+func ListUser() ([]*def.User, error) {
+    dbUsers, err := db.ListUser()
     if err != nil {
         return nil, err
     }
-    users := make([]*User, 0, len(dbUsers))
+    users := make([]*def.User, 0, len(dbUsers))
     for _, du := range dbUsers {
         if du.IsSuper > 0 {
             continue
@@ -172,7 +169,7 @@ func encodePasswd(salt, encPasswd string) string {
 //原始明文密码加密
 func encodeRawPasswd(userName, salt, passwd string) string {
     //先模拟客户端进行初次加密
-    text := ClientSaltPart + passwd + userName
+    text := def.ClientSaltPart + passwd + userName
     hash := sha1.New()
     hash.Write([]byte(text))
     encPasswd := hex.EncodeToString(hash.Sum(nil))

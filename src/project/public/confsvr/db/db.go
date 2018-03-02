@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
     "errors"
@@ -11,6 +11,8 @@ import (
     "github.com/go-xorm/core"
 
     "base/log"
+
+    "project/public/confsvr/def"
 )
 
 var (
@@ -27,9 +29,11 @@ type UserSimu struct {
     CreatedAt       time.Time   `xorm:"created"`
 }
 
-func initDB(objs ...interface{}) error {
+func Init(objs ...interface{}) error {
     var err error
-    engine, err = xorm.NewEngine("mysql", "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
+    //TODO 数据库地址
+    engine, err = xorm.NewEngine("mysql",
+        "hgame:Hgame188@tcp(10.1.164.20:3306)/db_new_oms?charset=utf8")
     if err != nil {
         return err
     }
@@ -54,12 +58,12 @@ func initDB(objs ...interface{}) error {
     return nil
 }
 
-func listUser() (users []*User, err error) {
+func ListUser() (users []*def.User, err error) {
     if engine == nil {
         return nil, errors.New("null engine")
     }
 
-    users = make([]*User, 0)
+    users = make([]*def.User, 0)
     err = engine.Find(&users)
     if err != nil {
         log.Error("engine.Find() error %v", err)
@@ -68,11 +72,11 @@ func listUser() (users []*User, err error) {
     return
 }
 
-func dbQueryUser(userName string) (*User, error) {
+func QueryUser(userName string) (*def.User, error) {
     if engine == nil {
         return nil, errors.New("null engine")
     }
-    var user User
+    var user def.User
     has, err := engine.Id(userName).Get(&user)
     if err != nil {
         return nil, fmt.Errorf("queryUser() error %v, userName %v", err, userName)
@@ -83,11 +87,11 @@ func dbQueryUser(userName string) (*User, error) {
     return &user, nil
 }
 
-func existUser(userName string) (bool, error) {
+func ExistUser(userName string) (bool, error) {
     if engine == nil {
         return false, errors.New("null engine")
     }
-    user := &User{Username: userName}
+    user := &def.User{Username: userName}
     total, err := engine.Count(user)
     if err != nil {
         return false, err
@@ -95,7 +99,7 @@ func existUser(userName string) (bool, error) {
     return total > 0, nil
 }
 
-func insertUser(user *User) error  {
+func InsertUser(user *def.User) error  {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -109,7 +113,7 @@ func insertUser(user *User) error  {
     return nil
 }
 
-func updateUser(user *User) error {
+func UpdateUser(user *def.User) error {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -124,17 +128,17 @@ func updateUser(user *User) error {
     return nil
 }
 
-func deleteUser(userName string) error {
-    user := new(User)
+func DeleteUser(userName string) error {
+    user := new(def.User)
     _, err := engine.Id(userName).Delete(user)
     return err
 }
 
-func existNamespace(name string) (bool, error) {
+func ExistNamespace(name string) (bool, error) {
     if engine == nil {
         return false, errors.New("null engine")
     }
-    ns := &Namespace{Name: name}
+    ns := &def.Namespace{Name: name}
     total, err := engine.Count(ns)
     if err != nil {
         log.Error("engine.Count() error %v, name %v", err, name)
@@ -143,7 +147,7 @@ func existNamespace(name string) (bool, error) {
     return total > 0, nil
 }
 
-func insertNamespace(ns *Namespace) error  {
+func InsertNamespace(ns *def.Namespace) error  {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -158,12 +162,12 @@ func insertNamespace(ns *Namespace) error  {
     return nil
 }
 
-func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
+func LoadConfigAll() (confs []*def.Config, namespaces []string, err error) {
     if engine == nil {
         return nil, nil, errors.New("null engine")
     }
 
-    confs = make([]*Config, 0)
+    confs = make([]*def.Config, 0)
     err = engine.Find(&confs)
     if err != nil {
         log.Error("engine.Find() error %v", err)
@@ -180,7 +184,7 @@ func loadConfigFromDB() (confs []*Config, namespaces []string, err error) {
     return
 }
 
-func updateDB(opConf *Config) error {
+func UpdateConfig(opConf *def.Config) error {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -195,7 +199,7 @@ func updateDB(opConf *Config) error {
     return nil
 }
 
-func addDB(opConf *Config) error {
+func InsertConfig(opConf *def.Config) error {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -210,7 +214,7 @@ func addDB(opConf *Config) error {
     return nil
 }
 
-func dbAddOplog(oplog *ConfigOplog) error {
+func InsertOplog(oplog *def.ConfigOplog) error {
     if engine == nil {
         return errors.New("null engine")
     }
@@ -240,7 +244,7 @@ func SimuCreateMulti() error {
     return nil
 }
 
-func finiDB() {
+func Fini() {
     if engine != nil {
         log.Info("close connection to db engine.")
         engine.Close()

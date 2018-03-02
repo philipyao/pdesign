@@ -3,6 +3,8 @@ package main
 import (
     "base/log"
     "project/share/proto"
+
+    "project/public/confsvr/core"
 )
 
 const (
@@ -21,7 +23,7 @@ func (r *RpcWorker) GamesvrHello(args *proto.GameHelloArg,
 func (r *RpcWorker) FetchConfig(args *proto.FetchConfigArg,
                                 response *proto.FetchConfigRes) error {
     log.Debug("[rpc]FetchConfig: args %+v", args)
-    confMap, err := ConfigWithNamespaceKey(args.Namespace, args.Keys)
+    confMap, err := core.ConfigWithNamespaceKey(args.Namespace, args.Keys)
     if err != nil {
         response.Errmsg = err.Error()
         return nil

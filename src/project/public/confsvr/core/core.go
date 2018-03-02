@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
     "fmt"
@@ -7,22 +7,25 @@ import (
 
     "base/log"
     "project/share/commdef"
+
+    "project/public/confsvr/def"
+    "project/public/confsvr/db"
 )
 
 var (
     namespaces []string
-    confs []*Config
+    confs []*def.Config
 )
 
-func initCore() error {
+func Init() error {
     var (
         err error
-        dbUser User
-        dbNamespace Namespace
-        dbConfig Config
-        dbOpLog ConfigOplog
+        dbUser def.User
+        dbNamespace def.Namespace
+        dbConfig def.Config
+        dbOpLog def.ConfigOplog
     )
-    err = initDB(&dbUser, &dbNamespace, &dbConfig, &dbOpLog)
+    err = db.Init(&dbUser, &dbNamespace, &dbConfig, &dbOpLog)
     if err != nil {
         return err
     }
@@ -30,7 +33,7 @@ func initCore() error {
     err = prepareDBData()
 
     log.Debug("loadConfigFromDB...")
-    confs, namespaces, err = loadConfigFromDB()
+    confs, namespaces, err = db.LoadConfigAll()
     if err != nil {
         return err
     }
@@ -38,7 +41,7 @@ func initCore() error {
 
     var zkaddr string
     for _, c := range confs {
-        if c.Namespace == ConfNamespaceCommon && c.Key == commdef.ConfigKeyZKAddr {
+        if c.Namespace == def.ConfNamespaceCommon && c.Key == commdef.ConfigKeyZKAddr {
             zkaddr = c.Value
             break
         }
@@ -62,29 +65,13 @@ func initCore() error {
     return nil
 }
 
-func finiCore()  {
-    finiDB()
+func Fini()  {
+    db.Fini()
     finiZK()
 }
 
-func prepareDBData() error {
-    var err error
-
-    //create admin user
-    err = createAdmin()
-    if err != nil {
-        return err
-    }
-    // create common namespace
-    err = createNamespaceCommon()
-    if err != nil {
-        return err
-    }
-    return nil
-}
-
-func updateConfig(id uint, value string, version int) error {
-    var opConf *Config
+func UpdateConfig(id uint, value string, version int) error {
+    var opConf *def.Config
     for _, conf := range confs {
         if conf.ID == id {
             opConf = conf
@@ -103,33 +90,33 @@ func updateConfig(id uint, value string, version int) error {
     return updateByConfig(opConf, value)
 }
 
-func addOplog(name, comment, author string, changes []*OpChange) {
-    oplog := &ConfigOplog{
+func AddOplog(name, comment, author string, changes []*def.OpChange) {
+    oplog := &def.ConfigOplog{
         Name: name,
         Comment: comment,
         Changes: changes,
         Author: author,
         OpTime: time.Now(),
     }
-    err := dbAddOplog(oplog)
+    err := db.InsertOplog(oplog)
     if err != nil {
         log.Error("add oplog<%+v> error: %v", oplog, err)
         return
     }
 }
 
-func addConfig(namespace, key, value string) (*Config, error) {
+func AddConfig(namespace, key, value string) (*def.Config, error) {
     for _, conf := range confs {
         if conf.Namespace == namespace && conf.Key == key {
             return nil, fmt.Errorf("duplicated entry: %v %v", namespace, key)
         }
     }
     var err error
-    var addConf Config
+    var addConf def.Config
     addConf.Namespace = namespace
     addConf.Key = key
     addConf.Value = value
-    err = addDB(&addConf)
+    err = db.InsertConfig(&addConf)
     if err != nil {
         return nil, err
     }
@@ -147,7 +134,7 @@ func addConfig(namespace, key, value string) (*Config, error) {
     return &addConf, nil
 }
 
-func configByID(id uint) *Config {
+func ConfigByID(id uint) *def.Config {
 	for _, c := range confs {
 		if c.ID == id {
 			return c
@@ -162,7 +149,7 @@ func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]strin
     for _, key := range keys {
         //先取common的值
         for _, c := range confs {
-            if c.Key == key && c.Namespace == ConfNamespaceCommon {
+            if c.Key == key && c.Namespace == def.ConfNamespaceCommon {
                 rets[key] = []string{c.Namespace, c.Value}
                 break
             }
@@ -182,17 +169,35 @@ func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]strin
     return rets, nil
 }
 
-func AllConfig() []Config {
-    var results []Config
+func AllConfig() []def.Config {
+    var results []def.Config
     for _, c := range confs {
         results = append(results, *c)
     }
     return results
 }
 
-func updateByConfig(opConf *Config, value string) error {
+//==========================================================
+
+func prepareDBData() error {
+    var err error
+
+    //create admin user
+    err = createAdmin()
+    if err != nil {
+        return err
+    }
+    // create common namespace
+    err = createNamespaceCommon()
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
+func updateByConfig(opConf *def.Config, value string) error {
     opConf.Value = value
-    err := updateDB(opConf)
+    err := db.UpdateConfig(opConf)
     if err != nil {
         return err
     }

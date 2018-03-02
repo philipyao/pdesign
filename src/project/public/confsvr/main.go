@@ -8,6 +8,8 @@ import (
 
     "project/share"
     "project/share/commdef"
+
+    "project/public/confsvr/core"
 )
 
 var (
@@ -17,7 +19,7 @@ var (
 func onInit(done chan struct{}) error {
     serverType  = commdef.ServerTypeConfsvr
 
-    err := initCore()
+    err := core.Init()
     if err != nil {
         return err
     }
@@ -26,7 +28,7 @@ func onInit(done chan struct{}) error {
 }
 
 func onShutdown() {
-    finiCore()
+    core.Fini()
 
     log.Info("confsvr onShutdown ok.")
     log.Flush()

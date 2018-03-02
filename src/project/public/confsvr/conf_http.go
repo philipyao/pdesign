@@ -8,28 +8,14 @@ import(
     "encoding/json"
 
     "base/log"
+
+    "project/public/confsvr/def"
+    "project/public/confsvr/core"
 )
 
 const (
     CookieName      = "sessid"
     KeyUserName     = "username"
-)
-
-//错误码
-const (
-    ErrOK                   = 0
-
-    ErrSystem               = -1                //系统错误
-    ErrParamParseForm       = -20001            //非法的form值
-    ErrParamParseBody       = -20002            //读取body失败
-    ErrParamInvalid         = -20003            //参数非法
-    ErrMethod               = -20101            //非法的method
-
-    ErrUnauthorized         = 40001             //未授权
-    ErrAccountDisabled      = 40002             //账号被禁用
-    ErrAccountPasswd        = 40003             //用户名或密码错误
-    ErrSessionExpired       = 40004             //服务器session过期，需要重新登录
-    ErrAccountExist         = 40005             //用户已存在
 )
 
 type AdminError struct {
@@ -107,7 +93,7 @@ type UserEntry struct {
 
 type AdminCreateUserReq struct {
     Username        string              `json:"username"`
-    EncPasswd       string              `json:"enc_passwd""`    //客户端初次加密后的密码
+    EncPasswd       string              `json:"enc_passwd"`    //客户端初次加密后的密码
 }
 type AdminCreateUserRsp struct {
     AdminError
@@ -132,51 +118,51 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/login": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
 
         err = r.ParseForm()
         if err != nil {
             log.Error("parse form error: %v", err)
-            doWriteError(w, ErrParamParseForm, err.Error())
+            doWriteError(w, def.ErrParamParseForm, err.Error())
             return
         }
         if r.Method != "POST" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
             return
         }
 
         userName, passwd:= r.FormValue("username"), r.FormValue("password")
         log.Debug("admin user LOGIN: %v@%v", userName, passwd)
         if userName == "" || passwd == "" {
-            doWriteError(w, ErrParamInvalid, "")
+            doWriteError(w, def.ErrParamInvalid, "")
             return
         }
 
-        pass, err := verifyUser(userName, passwd)
+        pass, err := core.VerifyUser(userName, passwd)
         if err != nil {
-            if err == ErrUserDisabled {
-                doWriteError(w, ErrAccountDisabled, "")
+            if err == def.CodeUserDisabled {
+                doWriteError(w, def.ErrAccountDisabled, "")
                 return
             }
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         if !pass {
-            doWriteError(w, ErrAccountPasswd, "")
+            doWriteError(w, def.ErrAccountPasswd, "")
             return
         }
 
         //拉取user信息
-        user, err := QueryUser(userName)
+        user, err := core.QueryUser(userName)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         if user == nil {
-            doWriteError(w, ErrSystem, "user not exist")
+            doWriteError(w, def.ErrSystem, "user not exist")
             return
         }
 
@@ -196,22 +182,22 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/list": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, ErrSessionExpired, "")
+            doWriteError(w, def.ErrSessionExpired, "")
             return
         }
 
         if r.Method != "POST" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
         }
 
-        results := AllConfig()
+        results := core.AllConfig()
         var rsp AdminListRsp
         for _, r := range results {
             rsp.Entries = append(rsp.Entries, dumpConfEntry(r))
@@ -223,25 +209,25 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/change": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, ErrSessionExpired, "")
+            doWriteError(w, def.ErrSessionExpired, "")
             return
         }
 
         if r.Method != "POST" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
             return
         }
         var req AdminUpdateReq
         err = readBodyData(r, &req)
         if err != nil {
-            doWriteError(w, ErrParamParseBody, err.Error())
+            doWriteError(w, def.ErrParamParseBody, err.Error())
             return
         }
 		log.Debug("update req: %+v", req)
@@ -249,27 +235,27 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 
         //开始参数校验
 		if len(req.Updates) == 0 && len(req.Adds) == 0 {
-            doWriteError(w, ErrParamInvalid, "no adds or updates provided")
+            doWriteError(w, def.ErrParamInvalid, "no adds or updates provided")
 			return
 		}
         if req.Name == "" || req.Author == "" {
-            doWriteError(w, ErrParamInvalid, "no name or author provided, pls check")
+            doWriteError(w, def.ErrParamInvalid, "no name or author provided, pls check")
             return
         }
 
         var rsp AdminUpdateRsp
 		var failed []string
-        var changes []*OpChange
+        var changes []*def.OpChange
 		for _, upd := range req.Updates {
-            c := configByID(upd.ID)
+            c := core.ConfigByID(upd.ID)
 
-            var change OpChange
+            var change def.OpChange
             change.Namespace = c.Namespace
             change.Key = c.Key
             change.OldValue = c.Value
             change.Value = upd.Value
 
-			err = updateConfig(upd.ID, upd.Value, upd.Version)
+			err = core.UpdateConfig(upd.ID, upd.Value, upd.Version)
 			log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
 			if err != nil {
 				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())
@@ -282,13 +268,13 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             changes = append(changes, &change)
 		}
         for _, add := range req.Adds {
-            var change OpChange
+            var change def.OpChange
             change.Namespace = add.Namespace
             change.Key = add.Key
             change.OldValue = ""
             change.Value = add.Value
 
-            c, err := addConfig(add.Namespace, add.Key, add.Value)
+            c, err := core.AddConfig(add.Namespace, add.Key, add.Value)
             if err != nil {
                 errMsg := fmt.Sprintf("config<%+v> add error: %v; ", add, err.Error())
                 failed = append(failed, errMsg)
@@ -300,7 +286,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         }
         if len(changes) > 0 {
             //TODO 失败的要不要记录？
-            addOplog(req.Name, req.Comment, req.Author, changes)
+            core.AddOplog(req.Name, req.Comment, req.Author, changes)
         }
 		rsp.Failed = failed
         doWriteJson(w, rsp)
@@ -309,33 +295,33 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/user/list": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, ErrSessionExpired, "")
+            doWriteError(w, def.ErrSessionExpired, "")
             return
         }
         if r.Method != "GET" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
             return
         }
 
         //校验用户权限
-        cando, err := CheckUserPrivilege(username.(string))
+        cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         if !cando {
-            doWriteError(w, ErrUnauthorized, "")
+            doWriteError(w, def.ErrUnauthorized, "")
             return
         }
         var rsp AdminListUserRsp
-        users, err := ListUser()
+        users, err := core.ListUser()
         if err != nil {
             rsp.Errmsg = err.Error()
         } else {
@@ -349,44 +335,44 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/user/create": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, ErrSessionExpired, "")
+            doWriteError(w, def.ErrSessionExpired, "")
             return
         }
         if r.Method != "POST" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
             return
         }
 
-        cando, err := CheckUserPrivilege(username.(string))
+        cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         if !cando {
-            doWriteError(w, ErrUnauthorized, "")
+            doWriteError(w, def.ErrUnauthorized, "")
             return
         }
         var req AdminCreateUserReq
         err = readBodyData(r, &req)
         if err != nil {
-            doWriteError(w, ErrParamParseBody, err.Error())
+            doWriteError(w, def.ErrParamParseBody, err.Error())
             return
         }
         log.Debug("user create req: %+v, passwd len %v", req, len(req.EncPasswd))
-        if req.Username == "" || len(req.EncPasswd) != DefaultCliPasswdLen {
-            doWriteError(w, ErrParamInvalid, "empty username or mismatch encpasswd length")
+        if req.Username == "" || len(req.EncPasswd) != def.DefaultCliPasswdLen {
+            doWriteError(w, def.ErrParamInvalid, "empty username or mismatch encpasswd length")
             return
         }
 
-        user, retcode := CreateUser(req.Username, req.EncPasswd)
-        if retcode != ErrOK {
+        user, retcode := core.CreateUser(req.Username, req.EncPasswd)
+        if retcode != def.ErrOK {
             doWriteError(w, retcode, "")
             return
         }
@@ -398,48 +384,49 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
     "/api/user/change": func(w http.ResponseWriter, r *http.Request) {
         sess, err := smgr.SessionAttach(w, r)
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, ErrSessionExpired, "")
+            doWriteError(w, def.ErrSessionExpired, "")
             return
         }
         if r.Method != "POST" {
             log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, ErrMethod, "")
+            doWriteError(w, def.ErrMethod, "")
             return
         }
 
-        cando, err := CheckUserPrivilege(username.(string))
+        cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, ErrSystem, err.Error())
+            doWriteError(w, def.ErrSystem, err.Error())
             return
         }
         if !cando {
-            doWriteError(w, ErrUnauthorized, "")
+            doWriteError(w, def.ErrUnauthorized, "")
             return
         }
 
         var req AdminChangeUserReq
         err = readBodyData(r, &req)
         if err != nil {
-            doWriteError(w, ErrParamParseBody, err.Error())
+            doWriteError(w, def.ErrParamParseBody, err.Error())
             return
         }
         log.Debug("user change req: %+v", req)
         if req.Username == "" {
             http.Error(w, "invalid req data", http.StatusBadRequest)
+            doWriteError(w, def.ErrParamInvalid, "empty username")
             return
         }
 
         var rsp AdminChangeUserRsp
         if req.Enable == 0 {
-             err = disableUser(req.Username)
+             err = core.DisableUser(req.Username)
         } else {
-            err = enableUser(req.Username)
+            err = core.EnableUser(req.Username)
         }
         if err != nil {
             rsp.Errmsg = err.Error()
@@ -461,7 +448,7 @@ func readBodyData(r *http.Request, object interface{}) error {
     return json.Unmarshal(reqdata, object)
 }
 
-func dumpConfEntry(c Config) *ConfEntry {
+func dumpConfEntry(c def.Config) *ConfEntry {
     return &ConfEntry{
         ID:             c.ID,
         Namespace:      c.Namespace,
@@ -473,7 +460,7 @@ func dumpConfEntry(c Config) *ConfEntry {
     }
 }
 
-func dumpUserEntry (u User) *UserEntry {
+func dumpUserEntry (u def.User) *UserEntry {
     return &UserEntry{
         Username: u.Username,
         Enabled: u.Enabled,
