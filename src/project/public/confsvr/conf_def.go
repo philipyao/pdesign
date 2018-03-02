@@ -11,7 +11,7 @@ const (
     AdminUsername       = "admin"
     AdminPasswd         = "hellopconf"
     DefaultSaltLen      = 32
-    DefaultCliPasswdLen = 64
+    DefaultCliPasswdLen = 40    //sha1输出为40位
     ClientSaltPart      = "^rR@8=YlsU"
 
     TableNameUser       = "tbl_user"

@@ -48,7 +48,7 @@ func createAdmin() error {
 //校验用户登录密码
 func verifyUser(userName, cliPasswd string) (bool, error) {
     //cliPasswd为客户端初次加密后的密码
-    user, err := queryUser(userName)
+    user, err := dbQueryUser(userName)
     if err != nil {
         return false, err
     }
@@ -97,9 +97,13 @@ func CreateUser(userName, cliPasswd string) (*User, int) {
     return &user, ErrOK
 }
 
+func QueryUser(userName string) (*User, error) {
+    return dbQueryUser(userName)
+}
+
 //禁用某一普通账号
 func disableUser(userName string) error {
-    user, err := queryUser(userName)
+    user, err := dbQueryUser(userName)
     if err != nil {
         return err
     }
@@ -116,7 +120,7 @@ func disableUser(userName string) error {
 
 //启用某一普通账号
 func enableUser(userName string) error {
-    user, err := queryUser(userName)
+    user, err := dbQueryUser(userName)
     if err != nil {
         return err
     }
@@ -132,7 +136,7 @@ func enableUser(userName string) error {
 }
 
 func CheckUserPrivilege(userName string) (bool, error) {
-    user, err := queryUser(userName)
+    user, err := dbQueryUser(userName)
     if err != nil {
         return false, err
     }

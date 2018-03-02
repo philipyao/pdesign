@@ -68,15 +68,14 @@ func listUser() (users []*User, err error) {
     return
 }
 
-func queryUser(userName string) (*User, error) {
+func dbQueryUser(userName string) (*User, error) {
     if engine == nil {
         return nil, errors.New("null engine")
     }
     var user User
     has, err := engine.Id(userName).Get(&user)
     if err != nil {
-        log.Error("queryUser() error %v, userName %v", err, userName)
-        return nil, err
+        return nil, fmt.Errorf("queryUser() error %v, userName %v", err, userName)
     }
     if !has {
         return nil, nil

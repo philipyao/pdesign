@@ -44,7 +44,7 @@ type AdminLoginRsp struct {
 
 type SUserinfo struct {
     Username        string          `json:"username"`
-    Token           string          `json:"token"`
+    IsSuper         uint            `json:"is_super"` //是否超级用户
 }
 
 type AdminListRsp struct {
@@ -169,6 +169,17 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             return
         }
 
+        //拉取user信息
+        user, err := QueryUser(userName)
+        if err != nil {
+            doWriteError(w, ErrSystem, err.Error())
+            return
+        }
+        if user == nil {
+            doWriteError(w, ErrSystem, "user not exist")
+            return
+        }
+
         //关联session和user
         sess.Set(KeyUserName, userName)
 
@@ -176,6 +187,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
         var loginRsp AdminLoginRsp
 		loginRsp.Userinfo = &SUserinfo{
         	Username: userName,
+            IsSuper: user.IsSuper,
 		}
         doWriteJson(w, loginRsp)
     },
@@ -367,7 +379,7 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             doWriteError(w, ErrParamParseBody, err.Error())
             return
         }
-        log.Debug("user create req: %+v", req)
+        log.Debug("user create req: %+v, passwd len %v", req, len(req.EncPasswd))
         if req.Username == "" || len(req.EncPasswd) != DefaultCliPasswdLen {
             doWriteError(w, ErrParamInvalid, "empty username or mismatch encpasswd length")
             return
@@ -475,7 +487,7 @@ func doWriteJson(w http.ResponseWriter, pkg interface{}) {
         log.Error("err marshal: err %v, pkg %+v", err, pkg)
         return
     }
-
+    log.Debug("doWriteJson %+v", pkg)
     w.Header().Set("Content-Type", "application/json")
     w.Write(data)
 }
@@ -484,6 +496,7 @@ func doWriteError(w http.ResponseWriter, errcode int, errmsg string) {
     var rsp AdminError
     rsp.Errcode = errcode
     rsp.Errmsg = errmsg
+    log.Debug("doWriteError: %v %v", errcode, errmsg)
     doWriteJson(w, &rsp)
 }
 
