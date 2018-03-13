@@ -13,8 +13,7 @@ import (
 )
 
 var (
-    namespaces []string
-    confs []*def.Config
+    c Configure = Configure{}
 )
 
 func Init() error {
@@ -33,33 +32,28 @@ func Init() error {
     err = prepareDBData()
 
     log.Debug("loadConfigFromDB...")
-    confs, namespaces, err = db.LoadConfigAll()
+    confs, namespaces, err := db.LoadConfigAll()
     if err != nil {
         return err
     }
     log.Debug("loadConfigFromDB ok, count: %v", len(confs))
+    c.Load(confs)
+    ns.Load(namespaces)
 
-    var zkaddr string
-    for _, c := range confs {
-        if c.Namespace == def.ConfNamespaceCommon && c.Key == commdef.ConfigKeyZKAddr {
-            zkaddr = c.Value
-            break
-        }
-    }
-    if zkaddr == "" {
+    zkConf := c.GetBy(def.ConfNamespaceCommon, commdef.ConfigKeyZKAddr)
+    if zkConf == nil {
         return errors.New("no zkaddr config specified!")
     }
-
-    err = initZK(zkaddr)
+    err = initZK(zkConf.Value)
     if err != nil {
         return err
     }
 
-    for _, c := range confs {
-        err = attachWithZK(c.Namespace, c.Key)
-        if err != nil {
-            return err
-        }
+    err = c.Foreach(func(entry *def.Config) error {
+        return attachWithZK(entry.Namespace, entry.Key)
+    })
+    if err != nil {
+        return err
     }
 
     return nil
@@ -71,13 +65,7 @@ func Fini()  {
 }
 
 func UpdateConfig(id uint, value string, version int) error {
-    var opConf *def.Config
-    for _, conf := range confs {
-        if conf.ID == id {
-            opConf = conf
-            break
-        }
-    }
+    var opConf *def.Config = c.Get(id)
     if opConf == nil {
         return fmt.Errorf("error update: config<%v> not found", id)
     }
@@ -106,60 +94,38 @@ func AddOplog(name, comment, author string, changes []*def.OpChange) {
 }
 
 func AddConfig(namespace, key, value string) (*def.Config, error) {
-    for _, conf := range confs {
-        if conf.Namespace == namespace && conf.Key == key {
-            return nil, fmt.Errorf("duplicated entry: %v %v", namespace, key)
-        }
+    if !ns.Exist(namespace) {
+        return nil, errors.New("namespace not exist")
     }
-    var err error
-    var addConf def.Config
-    addConf.Namespace = namespace
-    addConf.Key = key
-    addConf.Value = value
-    err = db.InsertConfig(&addConf)
+    if c.GetBy(namespace, key) != nil {
+        return nil, fmt.Errorf("duplicated entry: %v %v", namespace, key)
+    }
+
+    conf, err := c.Set(namespace, key, value)
     if err != nil {
         return nil, err
     }
-    confs = append(confs, &addConf)
-    addNamespace := true
-    for _, n := range namespaces {
-        if n == namespace {
-            addNamespace = false
-            break
-        }
-    }
-    if addNamespace {
-        namespaces = append(namespaces, namespace)
-    }
-    return &addConf, nil
+    return conf, nil
 }
 
 func ConfigByID(id uint) *def.Config {
-	for _, c := range confs {
-		if c.ID == id {
-			return c
-		}
-	}
-	return nil
+    return c.Get(id)
 }
 
 func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]string, error) {
     rets := make(map[string][]string)
     //common的固定返回
+    var conf *def.Config
     for _, key := range keys {
         //先取common的值
-        for _, c := range confs {
-            if c.Key == key && c.Namespace == def.ConfNamespaceCommon {
-                rets[key] = []string{c.Namespace, c.Value}
-                break
-            }
+        conf = c.GetBy(def.ConfNamespaceCommon, key)
+        if conf != nil {
+            rets[key] = []string{conf.Namespace, conf.Value}
         }
         //再取特定namespace的值，同key的覆盖
-        for _, c := range confs {
-            if c.Key == key && c.Namespace == nameSpace {
-                rets[key] = []string{c.Namespace, c.Value}
-                break
-            }
+        conf = c.GetBy(nameSpace, key)
+        if conf != nil {
+            rets[key] = []string{conf.Namespace, conf.Value}
         }
         if _, ok := rets[key]; !ok {
             return nil, fmt.Errorf("config for key <%v> not specified!", key)
@@ -171,9 +137,10 @@ func ConfigWithNamespaceKey(nameSpace string, keys []string) (map[string][]strin
 
 func AllConfig() []def.Config {
     var results []def.Config
-    for _, c := range confs {
-        results = append(results, *c)
-    }
+    c.Foreach(func(entry *def.Config) error {
+        results = append(results, *entry)
+        return nil
+    })
     return results
 }
 
@@ -188,7 +155,7 @@ func prepareDBData() error {
         return err
     }
     // create common namespace
-    err = createNamespaceCommon()
+    err = ns.CreateCommon()
     if err != nil {
         return err
     }
