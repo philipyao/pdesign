@@ -1,8 +1,6 @@
 package main
 
 import (
-    "os"
-
     "base/log"
     "base/srv"
 
@@ -60,10 +58,13 @@ func main() {
     }
 
     //对外HTTP服务
-    err = srv.HandleHttp(":8999", httpHandler)
+    httpWorker, err := srv.HandleHttp(":8999")
     if err != nil {
-        log.Error("srv.HandleHttp() err: %v", err.Error())
-        os.Exit(1)
+        log.Fatal("srv.HandleHttp() err: %v", err.Error())
+    }
+    err = serveHttp(httpWorker)
+    if err != nil {
+        log.Fatal("serveHttp err: %v", err.Error())
     }
 
     srv.Run()

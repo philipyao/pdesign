@@ -8,6 +8,8 @@ import(
     "encoding/json"
 
     "base/log"
+    "base/srv"
+    "base/phttp"
 
     "project/public/confsvr/def"
     "project/public/confsvr/core"
@@ -111,6 +113,30 @@ type AdminChangeUserRsp struct {
 var (
     smgr *SessionMgr = NewManager(3600)
 )
+
+func serveHttp(worker *srv.HTTPWorker) error {
+    var err error
+
+    //static file serving
+    err = worker.Static("/", "./dist")
+    if err != nil {
+        return err
+    }
+
+    //global middleware
+    worker.Use(func(ctx *phttp.Context, next phttp.Next) {
+        log.Debug("start log middleware...")
+        next()
+        log.Debug("end log middleware...")
+    })
+
+    //login
+    worker.Post("/api/login", func(ctx *phttp.Context) error {
+        return nil
+    })
+
+    return nil
+}
 
 var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
 

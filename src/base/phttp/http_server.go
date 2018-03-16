@@ -8,7 +8,7 @@ import (
     "net/http"
 )
 
-type Worker struct {
+type HTTPWorker struct {
     addr        string
     srv         *http.Server
     static      *static
@@ -16,11 +16,11 @@ type Worker struct {
     logFunc     func(format string, args ...interface{})
 }
 
-func New(addr string) *Worker {
-    return &Worker{addr: addr}
+func New(addr string) *HTTPWorker {
+    return &HTTPWorker{addr: addr}
 }
 
-func (w *Worker) Serve(done chan struct{}, wg *sync.WaitGroup) {
+func (w *HTTPWorker) Serve(done chan struct{}, wg *sync.WaitGroup) {
     defer wg.Done()
 
     w.mergeRoute()
@@ -55,11 +55,11 @@ func (w *Worker) Serve(done chan struct{}, wg *sync.WaitGroup) {
     w.srv.Shutdown(nil)
 }
 
-func (w *Worker) SetLog(l func(format string, args ...interface{})) {
+func (w *HTTPWorker) SetLog(l func(format string, args ...interface{})) {
     w.logFunc = l
 }
 
-func (w *Worker) SetHandler(hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
+func (w *HTTPWorker) SetHandler(hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
     if len(hdl) == 0 {
         return errors.New("inv http handler")
     }
@@ -70,7 +70,7 @@ func (w *Worker) SetHandler(hdl map[string]func(w http.ResponseWriter, r *http.R
 }
 
 //实现ServeMux接口
-func (w *Worker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
+func (w *HTTPWorker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
     //todo recover
 
     //makeContext
@@ -106,7 +106,7 @@ func (w *Worker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
     route.fnChain(ctx)
 }
 
-func (w *Worker) Static(prefix, dir string) error {
+func (w *HTTPWorker) Static(prefix, dir string) error {
     if w.static == nil {
         w.static = &static{}
     }

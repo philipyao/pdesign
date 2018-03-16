@@ -9,7 +9,6 @@ import (
     "sync"
     "path/filepath"
     "syscall"
-    "net/http"
 
     "base/util"
     "base/prpc"
@@ -34,7 +33,11 @@ type server struct {
     logFunc         func(format string, args ...interface{})
 
     rpc         *prpc.Worker
-    http        *phttp.Worker
+    http        *phttp.HTTPWorker
+}
+
+type HTTPWorker struct {
+    *phttp.HTTPWorker
 }
 
 var (
@@ -54,7 +57,7 @@ func (sv *server) setRpc(r *prpc.Worker) {
     sv.rpc = r
 }
 
-func (sv *server) setHttp(h *phttp.Worker) {
+func (sv *server) setHttp(h *phttp.HTTPWorker) {
     sv.http = h
 }
 
@@ -189,19 +192,15 @@ func HandleRpc(rpcName string, rpcWorker interface{}) error {
 }
 
 // 可选，注册http服务
-func HandleHttp(addr string, hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
+func HandleHttp(addr string) (*HTTPWorker, error) {
     httpW := phttp.New(addr)
     if httpW == nil {
-        return errors.New("init http error")
-    }
-    err := httpW.SetHandler(hdl)
-    if err != nil {
-        return err
+        return nil, errors.New("init http error")
     }
     httpW.SetLog(defaultSrv.logFunc)
     defaultSrv.setHttp(httpW)
 
-    return nil
+    return &HTTPWorker{httpW}, nil
 }
 
 //可选，自定义log输出
