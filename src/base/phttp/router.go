@@ -7,7 +7,7 @@ type route struct {
     //路由处理方法
     fn  handler
     //最终路由处理链
-    fnChain func(interface{})
+    fnChain func(*Context)
 }
 
 //路由组
@@ -56,6 +56,24 @@ func (r *router) mergeRoute() {
     r.groups = []*RouteGroup{}
 }
 
+func (r *router) makeHandlers(list []appliable) func(*Context) {
+    apps := merge(r.middlewares, list)
+    return routeMakeHandlers(apps)
+}
+
+func (r *router) match(method, path string) *route {
+    routes := r.routesBy(method)
+    if routes == nil {
+        return nil
+    }
+    for _, route := range routes {
+        if route.path == path {
+            return route
+        }
+    }
+    return nil
+}
+
 func merge(apps ...[]appliable) []appliable {
     result := make([]appliable, 0)
     for _, app := range apps {
@@ -64,8 +82,8 @@ func merge(apps ...[]appliable) []appliable {
     return result
 }
 
-func routeMakeHandlers(apps []appliable) func(interface{}) {
-    return func(ctx interface{}) {
+func routeMakeHandlers(apps []appliable) func(*Context) {
+    return func(ctx *Context) {
         current := 0
         apps[0].Apply(ctx, apps, current)
     }

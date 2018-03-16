@@ -1,12 +1,12 @@
 package phttp
 
 type appliable interface {
-    Apply(interface{}, []appliable, int)
+    Apply(*Context, []appliable, int)
 }
 
 //appliable实现1：普通路由
-type handler func(interface{}) error
-func (h handler) Apply(ctx interface{}, apps []appliable, current int) {
+type handler func(*Context) error
+func (h handler) Apply(ctx *Context, apps []appliable, current int) {
     err := h(ctx)
     if err != nil {
         //TODO
@@ -20,9 +20,9 @@ func (h handler) Apply(ctx interface{}, apps []appliable, current int) {
 }
 
 //appliable实现2：通用拦截器
-type middleware func(interface{}, Next)
+type middleware func(*Context, Next)
 type Next func()
-func (m middleware) Apply(ctx interface{}, apps []appliable, current int) {
+func (m middleware) Apply(ctx *Context, apps []appliable, current int) {
     next := func() {
         current++
         if len(apps) > current {
