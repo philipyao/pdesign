@@ -1,5 +1,9 @@
 package phttp
 
+var (
+    smgr *SessionMgr = NewManager(3600)
+)
+
 type appliable interface {
     Apply(*Context, []appliable, int)
 }
@@ -19,7 +23,7 @@ func (h handler) Apply(ctx *Context, apps []appliable, current int) {
     }
 }
 
-//appliable实现2：通用拦截器
+//appliable实现2：通用中间件
 type middleware func(*Context, Next)
 type Next func()
 func (m middleware) Apply(ctx *Context, apps []appliable, current int) {
@@ -32,6 +36,19 @@ func (m middleware) Apply(ctx *Context, apps []appliable, current int) {
     //执行拦截逻辑
     //由拦截器处理函数决定是否执行下一个applicable(next是否被调用)
     m(ctx, next)
+}
+
+//middleware session
+func AttachSession(ctx *Context, next Next) {
+    r := ctx.req.req
+    w := ctx.rsp.writer
+    sess, err := smgr.SessionAttach(w, r)
+    if err != nil {
+        //todo 出错
+        return
+    }
+    ctx.sess = sess
+    next()
 }
 
 

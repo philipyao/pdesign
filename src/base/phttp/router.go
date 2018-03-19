@@ -12,15 +12,19 @@ type route struct {
 
 //路由组
 type RouteGroup struct {
-    *interceptor
-    *methods
+    interceptor
+    methods
 }
 
 //路由管理器
 type router struct {
-    *interceptor
-    *methods
+    interceptor
+    methods
     groups []*RouteGroup
+}
+
+func (r *router) initRouter() {
+    r.initMethod()
 }
 
 //新建路由组

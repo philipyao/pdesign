@@ -4,16 +4,11 @@ import (
     "net/http"
 )
 
-type Session struct {
-    Sid     int
-    Data    map[string]interface{}
-}
-
 type Context struct {
     req *Request
     rsp *Response
 
-    sess *Session
+    sess *SessionStore
 }
 
 func makeContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -30,4 +25,8 @@ func (c *Context) Request() *Request {
 
 func (c *Context) Response() *Response {
     return c.rsp
+}
+
+func (c *Context) Session() *SessionStore {
+    return c.sess
 }

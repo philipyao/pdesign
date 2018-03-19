@@ -25,6 +25,11 @@ func (r *Request) Path() string {
     return r.req.URL.Path
 }
 
+//incoming Body as Form, get value from it
+func (r *Request) FormValue(key string) string {
+    return r.req.FormValue(key)
+}
+
 // Parse incoming Body as JSON
 func (r *Request) JsonBody(pkg interface{}) error {
     dec := json.NewDecoder(r.req.Body)

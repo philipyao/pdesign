@@ -18,6 +18,7 @@ func (m *methods) initMethod() {
         GET:    []*route{},
         POST:   []*route{},
     }
+    fmt.Printf("m %p, initMethod map %+v\n", m, m.rmap)
 }
 
 func (m *methods) routesBy(method string) []*route {
@@ -33,6 +34,8 @@ func (m *methods) register(path, method string, fn handler) {
         path: path,
         fn: fn,
     })
+    m.rmap[method] = routes
+    fmt.Printf("m %p, register <%v>, map %+v\n", m, method, m.rmap)
 }
 
 func (m *methods) Get(path string, fn handler) {

@@ -71,8 +71,11 @@ func (rsp *Response) Cookie(key, value string) {
 }
 
 func (rsp *Response) flush() {
+    fmt.Println("start flushing response")
+
     // set all cookies to response object
     for _, v := range rsp.cookies {
+        fmt.Printf("flush cookie %v\n", v)
         http.SetCookie(rsp.writer, v)
     }
     //none 200 status
@@ -81,14 +84,17 @@ func (rsp *Response) flush() {
         rsp.writer.Header().Set("X-Content-Type-Options", "nosniff")
         rsp.writer.WriteHeader(rsp.code)
         fmt.Fprintln(rsp.writer, rsp.errmsg)
+        fmt.Printf("flush code %v %v\n", rsp.code, rsp.errmsg)
         return
     }
     //file
     if rsp.file != "" {
+        fmt.Printf("flush file %v\n", rsp.file)
         http.ServeFile(rsp.writer, rsp.r, rsp.file)
         return
     }
 
     //write body
+    fmt.Printf("flush data, len %v\n", len(rsp.data))
     rsp.writer.Write(rsp.data)
 }

@@ -2,10 +2,6 @@ package main
 
 import(
     "fmt"
-    "errors"
-    "io/ioutil"
-    "net/http"
-    "encoding/json"
 
     "base/log"
     "base/srv"
@@ -118,161 +114,127 @@ func serveHttp(worker *srv.HTTPWorker) error {
     var err error
 
     //static file serving
-    err = worker.Static("/", "./dist")
-    if err != nil {
-        return err
-    }
+    //err = worker.Static("/", "./dist")
+    //if err != nil {
+    //    return err
+    //}
 
-    //global middleware
+    //global log middleware
     worker.Use(func(ctx *phttp.Context, next phttp.Next) {
         log.Debug("start log middleware...")
         next()
         log.Debug("end log middleware...")
     })
 
-    //login
-    worker.Post("/api/login", func(ctx *phttp.Context) error {
-        return nil
-    })
-
-    return nil
-}
-
-var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
+    //global session middleware
+    worker.Use(phttp.AttachSession)
 
     //登录
-    "/api/login": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
-        }
-
-        err = r.ParseForm()
-        if err != nil {
-            log.Error("parse form error: %v", err)
-            doWriteError(w, def.ErrParamParseForm, err.Error())
-            return
-        }
-        if r.Method != "POST" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-            return
-        }
-
-        userName, passwd:= r.FormValue("username"), r.FormValue("password")
+    worker.Post("/api/login", func(ctx *phttp.Context) error {
+        userName, passwd:= ctx.Request().FormValue("username"), ctx.Request().FormValue("password")
         log.Debug("admin user LOGIN: %v@%v", userName, passwd)
         if userName == "" || passwd == "" {
-            doWriteError(w, def.ErrParamInvalid, "")
-            return
+            doWriteError(ctx, def.ErrParamInvalid, "")
+            return nil
         }
 
         pass, err := core.VerifyUser(userName, passwd)
         if err != nil {
             if err == def.CodeUserDisabled {
-                doWriteError(w, def.ErrAccountDisabled, "")
-                return
+                doWriteError(ctx, def.ErrAccountDisabled, "")
+                return nil
+            } else if err == def.CodeUserNotExist{
+                doWriteError(ctx, def.ErrAccountPasswd, "")
+                return nil
             }
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+            doWriteError(ctx, def.ErrSystem, err.Error())
+            return nil
         }
         if !pass {
-            doWriteError(w, def.ErrAccountPasswd, "")
-            return
+            doWriteError(ctx, def.ErrAccountPasswd, "")
+            return nil
         }
 
         //拉取user信息
         user, err := core.QueryUser(userName)
         if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+            doWriteError(ctx, def.ErrSystem, err.Error())
+            return nil
         }
         if user == nil {
-            doWriteError(w, def.ErrSystem, "user not exist")
-            return
+            doWriteError(ctx, def.ErrSystem, "user not exist")
+            return nil
         }
 
         //关联session和user
+        sess := ctx.Session()
         sess.Set(KeyUserName, userName)
 
-        w.Header().Set("Content-Type", "application/json")
         var loginRsp AdminLoginRsp
-		loginRsp.Userinfo = &SUserinfo{
-        	Username: userName,
+        loginRsp.Userinfo = &SUserinfo{
+            Username: userName,
             IsSuper: user.IsSuper,
-		}
-        doWriteJson(w, loginRsp)
-    },
+        }
+        doWriteJson(ctx, loginRsp)
 
-    //列出所有配置
-    "/api/list": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+        return nil
+    })
+
+    logicGroup := worker.NewGroup()
+    //logicGroup拦截器：检查登录状态
+    logicGroup.Use(func(ctx *phttp.Context, next phttp.Next){
+        log.Debug("check login...")
+        sess := ctx.Session()
+        if sess == nil {
+            panic("session not attached!")
         }
         username := sess.Get(KeyUserName)
         if username == nil {
             //session过期，需要重新登录
-            doWriteError(w, def.ErrSessionExpired, "")
+            log.Info("session expired, need relogin.")
+            doWriteError(ctx, def.ErrSessionExpired, "")
             return
         }
+        log.Debug("check login ok.")
+        next()
+    })
 
-        if r.Method != "POST" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-        }
-
+    //逻辑接口：列出所有配置
+    logicGroup.Post("/api/list", func(ctx *phttp.Context) error {
+        log.Debug("list all config.")
         results := core.AllConfig()
         var rsp AdminListRsp
         for _, r := range results {
             rsp.Entries = append(rsp.Entries, dumpConfEntry(r))
         }
-        doWriteJson(w, rsp)
-    },
+        doWriteJson(ctx, rsp)
+        return nil
+    })
 
-    //修改配置
-    "/api/change": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
-        }
-        username := sess.Get(KeyUserName)
-        if username == nil {
-            //session过期，需要重新登录
-            doWriteError(w, def.ErrSessionExpired, "")
-            return
-        }
-
-        if r.Method != "POST" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-            return
-        }
+    //逻辑接口：修改配置
+    logicGroup.Post("/api/change", func(ctx *phttp.Context) error {
         var req AdminUpdateReq
-        err = readBodyData(r, &req)
+        err = ctx.Request().JsonBody(&req)
         if err != nil {
-            doWriteError(w, def.ErrParamParseBody, err.Error())
-            return
+            doWriteError(ctx, def.ErrParamParseBody, err.Error())
+            return nil
         }
-		log.Debug("update req: %+v", req)
-
+        log.Debug("update config req: %+v", req)
 
         //开始参数校验
-		if len(req.Updates) == 0 && len(req.Adds) == 0 {
-            doWriteError(w, def.ErrParamInvalid, "no adds or updates provided")
-			return
-		}
+        if len(req.Updates) == 0 && len(req.Adds) == 0 {
+            doWriteError(ctx, def.ErrParamInvalid, "no adds or updates provided")
+            return nil
+        }
         if req.Name == "" || req.Author == "" {
-            doWriteError(w, def.ErrParamInvalid, "no name or author provided, pls check")
-            return
+            doWriteError(ctx, def.ErrParamInvalid, "no name or author provided, pls check")
+            return nil
         }
 
         var rsp AdminUpdateRsp
-		var failed []string
+        var failed []string
         var changes []*def.OpChange
-		for _, upd := range req.Updates {
+        for _, upd := range req.Updates {
             c := core.ConfigByID(upd.ID)
 
             var change def.OpChange
@@ -281,18 +243,18 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             change.OldValue = c.Value
             change.Value = upd.Value
 
-			err = core.UpdateConfig(upd.ID, upd.Value, upd.Version)
-			log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
-			if err != nil {
-				errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())
+            err = core.UpdateConfig(upd.ID, upd.Value, upd.Version)
+            log.Debug("try update: %v %v, err %v", upd.ID, upd.Value, err)
+            if err != nil {
+                errMsg := fmt.Sprintf("config<id:%v> update error: %v; ", upd.ID, err.Error())
                 failed = append(failed, errMsg)
-				continue
-			}
+                continue
+            }
 
-			log.Debug("updated ok: %+v", c)
-			rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
+            log.Debug("updated ok: %+v", c)
+            rsp.Entries = append(rsp.Entries, dumpConfEntry(*c))
             changes = append(changes, &change)
-		}
+        }
         for _, add := range req.Adds {
             var change def.OpChange
             change.Namespace = add.Namespace
@@ -314,37 +276,26 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
             //TODO 失败的要不要记录？
             core.AddOplog(req.Name, req.Comment, req.Author, changes)
         }
-		rsp.Failed = failed
-        doWriteJson(w, rsp)
-    },
+        rsp.Failed = failed
+        doWriteJson(ctx, rsp)
+        return nil
+    })
 
-    "/api/user/list": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
-        }
-        username := sess.Get(KeyUserName)
-        if username == nil {
-            //session过期，需要重新登录
-            doWriteError(w, def.ErrSessionExpired, "")
-            return
-        }
-        if r.Method != "GET" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-            return
-        }
+    //逻辑接口：列出所有user
+    logicGroup.Get("/api/user/list", func(ctx *phttp.Context) error {
+        log.Debug("list all user")
 
         //校验用户权限
+        sess := ctx.Session()
+        username := sess.Get(KeyUserName)
         cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+            doWriteError(ctx, def.ErrSystem, err.Error())
+            return nil
         }
         if !cando {
-            doWriteError(w, def.ErrUnauthorized, "")
-            return
+            doWriteError(ctx, def.ErrUnauthorized, "")
+            return nil
         }
         var rsp AdminListUserRsp
         users, err := core.ListUser()
@@ -355,124 +306,89 @@ var httpHandler = map[string]func(w http.ResponseWriter, r *http.Request){
                 rsp.Entries = append(rsp.Entries, dumpUserEntry(*u))
             }
         }
-        doWriteJson(w, rsp)
-    },
+        doWriteJson(ctx, rsp)
+        return nil
+    })
 
-    "/api/user/create": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
-        }
+    //逻辑接口：新建user
+    logicGroup.Post("/api/user/create", func(ctx *phttp.Context) error {
+        sess := ctx.Session()
         username := sess.Get(KeyUserName)
-        if username == nil {
-            //session过期，需要重新登录
-            doWriteError(w, def.ErrSessionExpired, "")
-            return
-        }
-        if r.Method != "POST" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-            return
-        }
-
         cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+            doWriteError(ctx, def.ErrSystem, err.Error())
+            return nil
         }
         if !cando {
-            doWriteError(w, def.ErrUnauthorized, "")
-            return
+            doWriteError(ctx, def.ErrUnauthorized, "")
+            return nil
         }
         var req AdminCreateUserReq
-        err = readBodyData(r, &req)
+        err = ctx.Request().JsonBody(&req)
         if err != nil {
-            doWriteError(w, def.ErrParamParseBody, err.Error())
-            return
+            doWriteError(ctx, def.ErrParamParseBody, err.Error())
+            return nil
         }
         log.Debug("user create req: %+v, passwd len %v", req, len(req.EncPasswd))
         if req.Username == "" || len(req.EncPasswd) != def.DefaultCliPasswdLen {
-            doWriteError(w, def.ErrParamInvalid, "empty username or mismatch encpasswd length")
-            return
+            doWriteError(ctx, def.ErrParamInvalid, "empty username or mismatch encpasswd length")
+            return nil
         }
 
         user, retcode := core.CreateUser(req.Username, req.EncPasswd)
         if retcode != def.ErrOK {
-            doWriteError(w, retcode, "")
-            return
+            doWriteError(ctx, retcode, "")
+            return nil
         }
         var rsp AdminCreateUserRsp
         rsp.Entry = dumpUserEntry(*user)
-        doWriteJson(w, rsp)
-    },
+        doWriteJson(ctx, rsp)
+        return nil
+    })
 
-    "/api/user/change": func(w http.ResponseWriter, r *http.Request) {
-        sess, err := smgr.SessionAttach(w, r)
-        if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
-        }
+    //逻辑接口：修改用户
+    logicGroup.Post("/api/user/change", func(ctx *phttp.Context) error {
+        sess := ctx.Session()
         username := sess.Get(KeyUserName)
-        if username == nil {
-            //session过期，需要重新登录
-            doWriteError(w, def.ErrSessionExpired, "")
-            return
-        }
-        if r.Method != "POST" {
-            log.Error("handle http request, inv method %v", r.Method)
-            doWriteError(w, def.ErrMethod, "")
-            return
-        }
-
         cando, err := core.CheckUserPrivilege(username.(string))
         if err != nil {
-            doWriteError(w, def.ErrSystem, err.Error())
-            return
+            doWriteError(ctx, def.ErrSystem, err.Error())
+            return nil
         }
         if !cando {
-            doWriteError(w, def.ErrUnauthorized, "")
-            return
+            doWriteError(ctx, def.ErrUnauthorized, "")
+            return nil
         }
 
         var req AdminChangeUserReq
-        err = readBodyData(r, &req)
+        err = ctx.Request().JsonBody(&req)
         if err != nil {
-            doWriteError(w, def.ErrParamParseBody, err.Error())
-            return
+            doWriteError(ctx, def.ErrParamParseBody, err.Error())
+            return nil
         }
         log.Debug("user change req: %+v", req)
         if req.Username == "" {
-            http.Error(w, "invalid req data", http.StatusBadRequest)
-            doWriteError(w, def.ErrParamInvalid, "empty username")
-            return
+            doWriteError(ctx, def.ErrParamInvalid, "empty username")
+            return nil
         }
 
         var rsp AdminChangeUserRsp
         if req.Enable == 0 {
-             err = core.DisableUser(req.Username)
+            err = core.DisableUser(req.Username)
         } else {
             err = core.EnableUser(req.Username)
         }
         if err != nil {
             rsp.Errmsg = err.Error()
         }
-        doWriteJson(w, rsp)
-    },
+        doWriteJson(ctx, rsp)
+        return nil
+    })
+
+    return nil
 }
 
 //===================================================================
-
-func readBodyData(r *http.Request, object interface{}) error {
-    reqdata, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        return fmt.Errorf("read http body error %v", err)
-    }
-    if len(reqdata) == 0 {
-        return errors.New("no body data found")
-    }
-    return json.Unmarshal(reqdata, object)
-}
 
 func dumpConfEntry(c def.Config) *ConfEntry {
     return &ConfEntry{
@@ -494,22 +410,18 @@ func dumpUserEntry (u def.User) *UserEntry {
     }
 }
 
-func doWriteJson(w http.ResponseWriter, pkg interface{}) {
-    data, err := json.Marshal(pkg)
+func doWriteJson(ctx *phttp.Context, pkg interface{}) {
+    err := ctx.Response().Json(pkg)
     if err != nil {
-        log.Error("err marshal: err %v, pkg %+v", err, pkg)
-        return
+        log.Error("WriteJson error: %v", err)
     }
-    log.Debug("doWriteJson %+v", pkg)
-    w.Header().Set("Content-Type", "application/json")
-    w.Write(data)
 }
 
-func doWriteError(w http.ResponseWriter, errcode int, errmsg string) {
-    var rsp AdminError
-    rsp.Errcode = errcode
-    rsp.Errmsg = errmsg
+func doWriteError(ctx *phttp.Context, errcode int, errmsg string) {
+    var pkg AdminError
+    pkg.Errcode = errcode
+    pkg.Errmsg = errmsg
     log.Debug("doWriteError: %v %v", errcode, errmsg)
-    doWriteJson(w, &rsp)
+    doWriteJson(ctx, pkg)
 }
 

@@ -49,6 +49,9 @@ func VerifyUser(userName, cliPasswd string) (bool, error) {
     if err != nil {
         return false, err
     }
+    if user == nil {
+        return false, def.CodeUserNotExist
+    }
     if user.Enabled == 0 {
         //返回错误码
         return false, def.CodeUserDisabled

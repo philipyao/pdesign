@@ -22,5 +22,6 @@ const (
 )
 
 var (
+    CodeUserNotExist     = errors.New("user not exist")
     CodeUserDisabled     = errors.New("user disabled")
 )

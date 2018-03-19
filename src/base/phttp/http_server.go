@@ -3,7 +3,7 @@ package phttp
 import (
     "fmt"
     "sync"
-    "errors"
+    //"errors"
 
     "net/http"
 )
@@ -17,7 +17,9 @@ type HTTPWorker struct {
 }
 
 func New(addr string) *HTTPWorker {
-    return &HTTPWorker{addr: addr}
+    w := &HTTPWorker{addr: addr}
+    w.initRouter()
+    return w
 }
 
 func (w *HTTPWorker) Serve(done chan struct{}, wg *sync.WaitGroup) {
@@ -59,16 +61,6 @@ func (w *HTTPWorker) SetLog(l func(format string, args ...interface{})) {
     w.logFunc = l
 }
 
-func (w *HTTPWorker) SetHandler(hdl map[string]func(w http.ResponseWriter, r *http.Request)) error {
-    if len(hdl) == 0 {
-        return errors.New("inv http handler")
-    }
-    for path, fun := range hdl {
-        http.HandleFunc(path, fun)
-    }
-    return nil
-}
-
 //实现ServeMux接口
 func (w *HTTPWorker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
     //todo recover
@@ -95,6 +87,9 @@ func (w *HTTPWorker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
     //router handler
     route := w.match(request.Method(), request.Path())
     if route == nil {
+        if w.logFunc != nil {
+            w.logFunc("[http] route not found, %v", request.Path())
+        }
         var notfound handler = func(context *Context) error {
             context.Response().Error(http.StatusNotFound, "invalid path or method")
             return nil
@@ -102,6 +97,9 @@ func (w *HTTPWorker) ServeHTTP(writer http.ResponseWriter, r *http.Request) {
         fnChain := w.makeHandlers([]appliable{notfound})
         fnChain(ctx)
         return
+    }
+    if w.logFunc != nil {
+        w.logFunc("[http] route found ok, %v", request.Path())
     }
     route.fnChain(ctx)
 }
