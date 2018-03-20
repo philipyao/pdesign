@@ -2,8 +2,9 @@ package core
 
 import (
     "strings"
-    "base/zkcli"
-    "base/log"
+
+    log "github.com/philipyao/toolbox/logging"
+    "github.com/philipyao/toolbox/zkcli"
 
     "project/share/commdef"
 )

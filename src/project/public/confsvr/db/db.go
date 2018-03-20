@@ -10,7 +10,7 @@ import (
     "github.com/go-xorm/xorm"
     "github.com/go-xorm/core"
 
-    "base/log"
+    log "github.com/philipyao/toolbox/logging"
 
     "project/public/confsvr/def"
 )

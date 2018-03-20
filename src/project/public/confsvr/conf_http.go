@@ -3,16 +3,16 @@ package main
 import(
     "fmt"
 
-    "base/log"
+    log "github.com/philipyao/toolbox/logging"
     "base/srv"
-    "base/phttp"
+
+    "github.com/philipyao/phttp"
 
     "project/public/confsvr/def"
     "project/public/confsvr/core"
 )
 
 const (
-    CookieName      = "sessid"
     KeyUserName     = "username"
 )
 
@@ -105,10 +105,6 @@ type AdminChangeUserReq struct {
 type AdminChangeUserRsp struct {
     AdminError
 }
-
-var (
-    smgr *SessionMgr = NewManager(3600)
-)
 
 func serveHttp(worker *srv.HTTPWorker) error {
     var err error

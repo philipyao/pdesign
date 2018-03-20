@@ -5,7 +5,7 @@ import (
     "time"
     "errors"
 
-    "base/log"
+    log "github.com/philipyao/toolbox/logging"
     "project/share/commdef"
 
     "project/public/confsvr/def"

@@ -5,8 +5,8 @@ import (
     "crypto/sha1"
     "encoding/hex"
 
-    "base/util"
-    "base/log"
+    "github.com/philipyao/toolbox/util"
+    log "github.com/philipyao/toolbox/logging"
 
     "project/public/confsvr/def"
     "project/public/confsvr/db"

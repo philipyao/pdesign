@@ -1,7 +1,7 @@
 package main
 
 import (
-    "base/log"
+    log "github.com/philipyao/toolbox/logging"
     "base/srv"
 
     "project/share"

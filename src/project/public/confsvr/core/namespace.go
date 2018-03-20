@@ -2,7 +2,7 @@ package core
 
 import (
     "errors"
-    "base/log"
+    log "github.com/philipyao/toolbox/logging"
 
     "project/public/confsvr/def"
     "project/public/confsvr/db"
